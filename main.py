@@ -216,6 +216,40 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
 
     return False
 
+def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):  #TODO i have to implement the backwards and foward edge
+    source = s
+    q = [source]  # I am not currently adding all vertices, this can become a problem down the line
+
+    for node in g.nodes:
+        if node != source:
+            node.distance = 0 # here the distance will behave like capacity and we will look for the max value
+            q.append(node)
+
+    source.distance = math.inf # the source has maximum capacity
+    visited = []
+    while len(q) > 0:
+        current = max(q, key=lambda a: a.distance)
+        q.remove(current)
+        visited.append(current)
+        for neighbour in current.edges.keys():
+            edge_cap = current.edges[neighbour].capacity
+
+            if edge_cap > current.distance:
+                max_to_neighbour = edge_cap
+            else:
+                max_to_neighbour = current.distance
+
+            if neighbour.distance < current.distance:
+                neighbour.distance = current.distance + 1
+                neighbour.father = current
+            if neighbour == t:
+                return True
+            if (neighbour not in visited) and (neighbour not in q):
+                q.append(neighbour)
+
+    return False
+
+
 
 if __name__ == '__main__':
     n_values = [100, 200]
