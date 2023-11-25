@@ -45,19 +45,32 @@ class Graph:
         for edge in self.edges:
             edge.used_cap = 0
 
-    def fill_backwards_path(self, sink=None):  # this concretes the path and makes it permanent for next searches (
-        # residual net)
+    def fill_backwards_path(self, flow, sink: Node = None,
+                            target: Node = None):  # this concretes the path and makes it permanent for
+        # next searches (residual net)
         if sink is None:
-            current = self.sink
+            current = self.sink  # here we do the opposite since we are going backwards
         else:
             current = sink
 
-        if current is None:
-            print(f"Error:There is no sink set or given, no path can be calculated")
+        if target is None:
+            final = self.source  # here the final is the source because we are going the opposite way
+        else:
+            final = target
+
+        if (current is None) or (final is None):
+            print(f"Error:There is no sink or target set or given, no path can be calculated")
             return False
 
-        # TODO augmenting path building here after the search for the max capacity algo
+        while current != final:
+            if current.father is None:
+                raise ValueError("path found broke ")
+            else:
+                edge_to_father = current.father.edges[current]  # here the current is the target instead of source
+                if edge_to_father.used_cap + flow > edge_to_father.capacity: raise ValueError("New flow exceeds cap")
+                edge_to_father.used_cap += flow
 
+            current = current.father
         return True
 
 
@@ -136,10 +149,16 @@ def get_path_found(g: Graph, s: Node, t: Node):
 
     current = t
     path_followed = []
+    human_readable = []
     for _ in range(max_path):
         if current == s:
+            path_followed.append(current)
+            human_readable.append(f"Node {current.id}")
             break
         path_followed.append(current)
+        human_readable.append(f"Node {current.id}")
+        edge = current.father.edges[current]
+        human_readable.append(f"Edge {edge.id} ({edge.source.id} -> {edge.target.id})")
         current = current.father
 
     else:
@@ -147,7 +166,7 @@ def get_path_found(g: Graph, s: Node, t: Node):
             print(f"Path is broken")
             return None
 
-    return path_followed[::-1]
+    return path_followed[::-1], human_readable[::-1]
 
 
 def dijkstra_SAP(g: Graph, s: Node, t: Node):
@@ -193,15 +212,16 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
         visited.append(current)
         for neighbour in current.edges.keys():
             if neighbour == t:  # found the path
+                neighbour.father = current
                 return True
 
             if neighbour.distance == math.inf:  # found another not relaxed node
                 neighbour.distance = counter
                 counter -= 1
                 neighbour.father = current
-            elif neighbour.distance > current.distance + 1:
-                neighbour.distance = current.distance + 1
-                neighbour.father = current
+            # elif neighbour.distance > current.distance + 1:
+            #     neighbour.distance = current.distance + 1
+            #     neighbour.father = current
 
             if (neighbour not in visited) and (neighbour not in q):
                 q.append(neighbour)
@@ -226,14 +246,15 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
         visited.append(current)
         for neighbour in current.edges.keys():
             if neighbour == t:  # found the path
+                neighbour.father = current
                 return True
 
             if neighbour.distance == math.inf:  # found another not relaxed node
                 neighbour.distance = int(random() * counter)
                 neighbour.father = current
-            elif neighbour.distance > current.distance + 1:
-                neighbour.distance = current.distance + 1
-                neighbour.father = current
+            # elif neighbour.distance > current.distance + 1:
+            #     neighbour.distance = current.distance + 1
+            #     neighbour.father = current
 
             if (neighbour not in visited) and (neighbour not in q):
                 q.append(neighbour)
@@ -296,12 +317,30 @@ if __name__ == '__main__':
                 found_path = dijkstra_SAP(g, s, t)
                 if not found_path:
                     print("could not find path in SAP")
-                path = get_path_found(g, s, t)
+                path, readable = get_path_found(g, s, t)
+                g.reset_path()
+
                 found_path_2 = dijkstra_DFS(g, s, t)
                 if not found_path_2:
                     print("could not find path in DFS like")
+                path2, readable2 = get_path_found(g, s, t)
+                g.reset_path()
+
                 found_path_3 = dijkstra_RANDOM(g, s, t)
                 if not found_path_3:
                     print("could not find path in RANDOM")
-                graphs.append((g, s, t, found_path, path))
+                path3, readable3 = get_path_found(g, s, t)
+                g.reset_path()
+
+                found_path_4 = dijkstra_MAXCAP(g, s, t)
+                if not found_path_4:
+                    print("could not find path in MAXCAP")
+                path4, readable4 = get_path_found(g, s, t)
+                g.reset_path()
+                g.reset_capacities()
+
+                graphs.append(
+                    (g, s, t,
+                     path, path2, path3, path4,
+                     readable, readable2, readable3, readable4))
     print("test ok")
