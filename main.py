@@ -3,14 +3,16 @@ import math
 
 
 class Edge:
-    def __init__(self, identifier, source=None, target=None, upper_cap=2, cap=None):
+    def __init__(self, identifier, source=None, target=None, upper_cap=2, cap=None, residual=False):
         self.id = identifier
+        self.is_residual = residual
         self.source = source
         self.target = target
         if cap is None:
             self.capacity = random() * upper_cap
         else:
             self.capacity = cap
+        self.used_cap = 0
 
 
 class Node:
@@ -24,18 +26,39 @@ class Node:
 
 
 class Graph:
-    def __init__(self, nodes=None, edges=None):
+    def __init__(self, nodes=None, edges=None, sink=None, source=None):
         if edges is None:
             edges = []
         if nodes is None:
             nodes = []
         self.nodes = nodes
         self.edges = edges
+        self.sink = sink
+        self.source = source
 
-    def reset(self):
+    def reset_path(self):
         for node in self.nodes:
             node.distance = math.inf
             node.father = None
+
+    def reset_capacities(self):
+        for edge in self.edges:
+            edge.used_cap = 0
+
+    def fill_backwards_path(self, sink=None):  # this concretes the path and makes it permanent for next searches (
+        # residual net)
+        if sink is None:
+            current = self.sink
+        else:
+            current = sink
+
+        if current is None:
+            print(f"Error:There is no sink set or given, no path can be calculated")
+            return False
+
+        # TODO augmenting path building here after the search for the max capacity algo
+
+        return True
 
 
 def generate_sink_source_graph(n, r, upper_cap):
@@ -157,7 +180,7 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
     source = s
     q = [source]  # I am not currently adding all vertices, this can become a problem down the line
 
-    counter = 9999999999  # big number so it will ever get to 0 unless infinite loop
+    counter = 9999999999  # big number,so it will ever get to 0 unless infinite loop
     for node in g.nodes:
         if node != source:
             q.append(node)
@@ -185,11 +208,12 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
 
     return False
 
+
 def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
     source = s
     q = [source]  # I am not currently adding all vertices, this can become a problem down the line
 
-    counter = 9999999999  # big number so it will ever get to 0 unless infinite loop
+    counter = 9999999999  # big number,so it will ever get to 0 unless infinite loop
     for node in g.nodes:
         if node != source:
             q.append(node)
@@ -205,7 +229,7 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
                 return True
 
             if neighbour.distance == math.inf:  # found another not relaxed node
-                neighbour.distance = int(random()*counter)
+                neighbour.distance = int(random() * counter)
                 neighbour.father = current
             elif neighbour.distance > current.distance + 1:
                 neighbour.distance = current.distance + 1
@@ -216,39 +240,45 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
 
     return False
 
-def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):  #TODO i have to implement the backwards and foward edge
+
+def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):  # TODO i have to implement the backwards and forward edge
     source = s
     q = [source]  # I am not currently adding all vertices, this can become a problem down the line
 
     for node in g.nodes:
         if node != source:
-            node.distance = 0 # here the distance will behave like capacity and we will look for the max value
+            node.distance = 0  # here the distance will behave like capacity and we will look for the max value
             q.append(node)
 
-    source.distance = math.inf # the source has maximum capacity
+    source.distance = math.inf  # the source has maximum capacity
     visited = []
     while len(q) > 0:
         current = max(q, key=lambda a: a.distance)
         q.remove(current)
         visited.append(current)
         for neighbour in current.edges.keys():
-            edge_cap = current.edges[neighbour].capacity
-
-            if edge_cap > current.distance:
+            edge = current.edges[neighbour]
+            edge_cap = edge.capacity - edge.used_cap  # used cap represent flow already set as being used by other
+            # iterations of this function (this would be run more than once)
+            if edge_cap == 0:
+                continue  # this path was already exhausted in previous iterations
+            if edge_cap > current.distance:  # here we see what would be the max deliverable flow to that neighbour
                 max_to_neighbour = edge_cap
             else:
                 max_to_neighbour = current.distance
 
-            if neighbour.distance < current.distance:
-                neighbour.distance = current.distance + 1
+            if neighbour.distance < max_to_neighbour:
+                neighbour.distance = max_to_neighbour
                 neighbour.father = current
-            if neighbour == t:
-                return True
+            # if neighbour == t:    # Here we DO NOT exit onde we find the target because the max flow could be defined
+            #     return True       # at the last connection for multiple edges and returning here would return a
+            # suboptimal value
             if (neighbour not in visited) and (neighbour not in q):
                 q.append(neighbour)
 
+    if t.distance > 0:
+        return True
     return False
-
 
 
 if __name__ == '__main__':
