@@ -3,9 +3,8 @@ import math
 
 
 class Edge:
-    def __init__(self, identifier, source=None, target=None, upper_cap=2, cap=None, residual=False, used_cap=0):
+    def __init__(self, identifier, source=None, target=None, upper_cap=2, cap=None, used_cap=0):
         self.id = identifier
-        self.is_residual = residual
         self.source = source
         self.target = target
         if cap is None:
@@ -40,22 +39,17 @@ class Graph:
         for node in self.nodes:
             node.distance = math.inf
             node.father = None
+        self.source.distance = 0
 
     def reset_capacities(self):
-        edges_to_remove = []
         for edge in self.edges:
             if edge.id < 0:
-                edges_to_remove.append(edge)
+                edge.used_cap = edge.capacity
             else:
                 edge.used_cap = 0
-
-        for edge in edges_to_remove:
-            graph.edges.remove(edge)
-            edge.source.pop(edge)
-
         return
 
-
+    # TODO fix this fill backwards
     def fill_backwards_path(self, sink: Node = None,
                             target: Node = None):  # this concretes the path and makes it permanent for
         # next searches (residual net)
@@ -107,7 +101,7 @@ class Graph:
         return path_size
 
 
-def generate_sink_source_graph(n, r, upper_cap):
+def generate_graph(n, r, upper_cap):
     g = Graph()
     nodes = [Node(identifier=_, x=random(), y=random()) for _ in range(n)]
     edge_id = 0
@@ -118,16 +112,33 @@ def generate_sink_source_graph(n, r, upper_cap):
 
                 if random() < .5:
                     if (n2 not in n1.edges.keys()) and (n1 not in n2.edges.keys()):
-                        new_edge = Edge(edge_id, upper_cap=upper_cap, source=n1, target=n2)
+                        new_edge = Edge(edge_id,
+                                        upper_cap=upper_cap,
+                                        source=n1,
+                                        target=n2)
+                        new_edge_revert = Edge(edge_id * -1,
+                                               cap=new_edge.capacity,
+                                               source=n2,
+                                               target=n1,
+                                               used_cap=new_edge.capacity)
                         n1.edges[n2] = new_edge
+                        n2.edges[n1] = new_edge_revert
                         edge_id += 1
                         edges.append(new_edge)
+                        edges.append(new_edge_revert)
                 else:
                     if (n2 not in n1.edges.keys()) and (n1 not in n2.edges.keys()):
                         new_edge = Edge(edge_id, upper_cap=upper_cap, source=n2, target=n1)
+                        new_edge_revert = Edge(edge_id * -1,
+                                               cap=new_edge.capacity,
+                                               source=n1,
+                                               target=n2,
+                                               used_cap=new_edge.capacity)
                         n2.edges[n1] = new_edge
+                        n1.edges[n2] = new_edge_revert
                         edge_id += 1
                         edges.append(new_edge)
+                        edges.append(new_edge_revert)
 
     g.nodes = nodes
     g.edges = edges
@@ -149,6 +160,8 @@ def bfs(s: Node, target=None):
         visited.append(current)
         for neighbour in current.edges.keys():
             if neighbour not in visited:
+                if current.edges[neighbour].used_cap == current.edges[neighbour].capacity:
+                    continue # this is either a residual edge not to be used or is completly full
                 q.append(neighbour)
                 if neighbour not in distance.keys():
                     distance[neighbour] = distance[current] + 1
@@ -217,6 +230,8 @@ def dijkstra_SAP(g: Graph, s: Node, t: Node):
         q.remove(current)
         visited.append(current)
         for neighbour in current.edges.keys():
+            if current.edges[neighbour].used_cap == current.edges[neighbour].capacity:
+                continue  # this is either a residual edge not to be used or is completly full
             if neighbour.distance > current.distance + 1:
                 neighbour.distance = current.distance + 1
                 neighbour.father = current
@@ -244,6 +259,8 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
         q.remove(current)
         visited.append(current)
         for neighbour in current.edges.keys():
+            if current.edges[neighbour].used_cap == current.edges[neighbour].capacity:
+                continue  # this is either a residual edge not to be used or is completly full
             if neighbour == t:  # found the path
                 neighbour.father = current
                 return True
@@ -278,6 +295,8 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
         q.remove(current)
         visited.append(current)
         for neighbour in current.edges.keys():
+            if current.edges[neighbour].used_cap == current.edges[neighbour].capacity:
+                continue  # this is either a residual edge not to be used or is completly full
             if neighbour == t:  # found the path
                 neighbour.father = current
                 return True
@@ -326,10 +345,9 @@ def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):  # TODO i have to implement the
                 neighbour.distance = max_to_neighbour
                 neighbour.father = current
             if neighbour == t:
-                print("path_found") # using for test purposes
-            # if neighbour == t:    # Here we DO NOT exit onde we find the target because the max flow could be defined
-            #     return True       # at the last connection for multiple edges and returning here would return a
-            # suboptimal value
+                print("path_found")  # using for test purposes
+            if neighbour == t:
+                return True
             if (neighbour not in visited) and (neighbour not in q):
                 q.append(neighbour)
 
@@ -347,7 +365,7 @@ if __name__ == '__main__':
     for n in n_values:
         for r in r_values:
             for c in upper_cap_values:
-                g = generate_sink_source_graph(n, r, c)
+                g = generate_graph(n, r, c)
 
                 s, t, max_dist = random_source_target(g)
 
@@ -378,7 +396,7 @@ if __name__ == '__main__':
                 found_path_4 = dijkstra_MAXCAP(g, s, t)
                 if not found_path_4:
                     raise RuntimeError(f"could not find path in MAXCAP")
-                path4, readable4 = get_path_found(g, s, t)
+                path4, readable4 = get_path_found(g, s, t) # the problem is we are trying to find max weight in djikstra and now it has cycles since we put augmenting path
                 g.reset_path()
                 g.reset_capacities()
 
@@ -392,7 +410,7 @@ if __name__ == '__main__':
             paths = 0  # number of augmenting paths
             ML = 0  # avg of all augmenting paths
             MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
-            total_edges = len(graph.edges)
+            total_edges = len(graph.edges)/2 # divide by two to remove the reverses of each edge
             while True:
                 flow_incremented = dijkstra_MAXCAP(graph, source, target)
                 if flow_incremented:
