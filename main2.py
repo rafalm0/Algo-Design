@@ -75,8 +75,8 @@ class Graph:
             if current.father is None: raise ValueError("path found broke ")
 
             edge_to_father = current.father.edges[current]  # here the current is the target instead of source
-            if edge_to_father.capacity < max_flow:
-                max_flow = edge_to_father.capacity
+            if (edge_to_father.capacity - edge_to_father.used_cap) < max_flow:
+                max_flow = edge_to_father.capacity - edge_to_father.used_cap
                 edges_to_update.append(edge_to_father)
             current = current.father
             path_size += 1
@@ -95,8 +95,8 @@ class Graph:
 
             else:
                 inverted_edge = edge.target.edges[edge.source]
-                inverted_edge.used_cap -= max_flow
-                if inverted_edge.used_cap < 0: raise ValueError(f"Residual path fell below zero")
+                inverted_edge.used_cap = edge.capacity - edge.used_cap
+                if inverted_edge.used_cap < -0.00000000000001: raise ValueError(f"Residual path fell below zero: {inverted_edge.used_cap}")
 
         return path_size
 
@@ -415,7 +415,8 @@ if __name__ == '__main__':
 
     for method in methods.keys():
         print(f"Experiments with {method}")
-        for graph, source, target, max_dist, n, r, c in graphs:
+        for graph_id, (graph, source, target, max_dist, n, r, c) in enumerate(graphs):
+            print(f"Experiments on graph {graph_id+1}/{len(graphs)}...")
             paths = 0  # number of augmenting paths
             ML = 0  # avg of all augmenting paths
             MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
@@ -423,7 +424,9 @@ if __name__ == '__main__':
             while True:
                 flow_incremented = methods[method](graph, source, target)
                 if flow_incremented:
+                    path, readable = get_path_found(graph, source, target)
                     path_size = graph.fill_backwards_path()  # updates the graph and count path's size
+                    graph.reset_path()
                     ML += path_size
                     paths += 1
                 else:
@@ -432,6 +435,8 @@ if __name__ == '__main__':
             MPL = ML / max_dist
             method_name = method
             logs.append([method_name, n, r, c, paths, ML, MPL, total_edges])
+            graph.reset_path()
+            graph.reset_capacities()
 
     print("All experiments finished.")
     pass
