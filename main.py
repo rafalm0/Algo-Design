@@ -3,7 +3,7 @@ import math
 
 
 class Edge:
-    def __init__(self, identifier, source=None, target=None, upper_cap=2, cap=None, residual=False):
+    def __init__(self, identifier, source=None, target=None, upper_cap=2, cap=None, residual=False, used_cap=0):
         self.id = identifier
         self.is_residual = residual
         self.source = source
@@ -12,7 +12,7 @@ class Edge:
             self.capacity = random() * upper_cap
         else:
             self.capacity = cap
-        self.used_cap = 0
+        self.used_cap = used_cap
 
 
 class Node:
@@ -42,10 +42,21 @@ class Graph:
             node.father = None
 
     def reset_capacities(self):
+        edges_to_remove = []
         for edge in self.edges:
-            edge.used_cap = 0
+            if edge.id < 0:
+                edges_to_remove.append(edge)
+            else:
+                edge.used_cap = 0
 
-    def fill_backwards_path(self, flow, sink: Node = None,
+        for edge in edges_to_remove:
+            graph.edges.remove(edge)
+            edge.source.pop(edge)
+
+        return
+
+
+    def fill_backwards_path(self, sink: Node = None,
                             target: Node = None):  # this concretes the path and makes it permanent for
         # next searches (residual net)
         if sink is None:
@@ -59,19 +70,41 @@ class Graph:
             final = target
 
         if (current is None) or (final is None):
-            print(f"Error:There is no sink or target set or given, no path can be calculated")
-            return False
+            raise EnvironmentError(f"Error:There is no sink or target set or given, no path can be calculated")
 
+        path_size = 1
+
+        max_flow = math.inf
+        edges_to_update = []
+        # now we find the max flow that the path calculated can handle
         while current != final:
-            if current.father is None:
-                raise ValueError("path found broke ")
-            else:
-                edge_to_father = current.father.edges[current]  # here the current is the target instead of source
-                if edge_to_father.used_cap + flow > edge_to_father.capacity: raise ValueError("New flow exceeds cap")
-                edge_to_father.used_cap += flow
+            if current.father is None: raise ValueError("path found broke ")
 
+            edge_to_father = current.father.edges[current]  # here the current is the target instead of source
+            if edge_to_father.capacity < max_flow:
+                max_flow = edge_to_father
+                edges_to_update.append(edge_to_father)
             current = current.father
-        return True
+            path_size += 1
+
+        for edge in edges_to_update:
+            edge.used_cap += max_flow
+            if source not in edge.target.edges.keys():  # check if the other path exists
+                new_residual_edge = Edge(identifier=edge.id * -1,
+                                         residual=True,
+                                         source=edge.target,
+                                         target=edge.source,
+                                         cap=edge.capacity,
+                                         used_cap=edge.capacity - max_flow)  # create other way around
+                graph.edges.append(new_residual_edge)
+                target.edges[source] = new_residual_edge
+
+            else:
+                inverted_edge = edge.target.edges[source]
+                inverted_edge.used_cap -= max_flow
+                if inverted_edge.used_cap < 0: raise ValueError(f"Residual path fell below zero")
+
+        return path_size
 
 
 def generate_sink_source_graph(n, r, upper_cap):
@@ -135,13 +168,13 @@ def bfs(s: Node, target=None):
                     max_dist = dist
                     target = n
 
-    return distance, target
+    return distance, target, max_dist
 
 
 def random_source_target(g: Graph):
     source = choice(g.nodes)
-    distances, target = bfs(source)
-    return source, target
+    distances, target, max_dist = bfs(source)
+    return source, target, max_dist
 
 
 def get_path_found(g: Graph, s: Node, t: Node):
@@ -283,7 +316,8 @@ def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):  # TODO i have to implement the
             # iterations of this function (this would be run more than once)
             if edge_cap == 0:
                 continue  # this path was already exhausted in previous iterations
-            if edge_cap > current.distance:  # here we see what would be the max deliverable flow to that neighbour
+            if (edge_cap > current.distance) or (
+                    current.distance == math.inf):  # here we see what would be the max deliverable flow to that neighbour
                 max_to_neighbour = edge_cap
             else:
                 max_to_neighbour = current.distance
@@ -313,7 +347,11 @@ if __name__ == '__main__':
             for c in upper_cap_values:
                 g = generate_sink_source_graph(n, r, c)
 
-                s, t = random_source_target(g)
+                s, t, max_dist = random_source_target(g)
+
+                g.source = s
+                g.sink = t
+
                 found_path = dijkstra_SAP(g, s, t)
                 if not found_path:
                     print("could not find path in SAP")
@@ -339,8 +377,29 @@ if __name__ == '__main__':
                 g.reset_path()
                 g.reset_capacities()
 
-                graphs.append(
-                    (g, s, t,
-                     path, path2, path3, path4,
-                     readable, readable2, readable3, readable4))
-    print("test ok")
+                graphs.append((g, s, t, max_dist, n, r, c))
+    print("Test ok, starting experiments...")
+
+    logs = []
+    for method in [dijkstra_MAXCAP, dijkstra_DFS, dijkstra_RANDOM, dijkstra_SAP]:
+        print(f"Experiments with {method.__name__}")
+        for graph, source, target, max_dist, n, r, c in graphs:
+            paths = 0  # number of augmenting paths
+            ML = 0  # avg of all augmenting paths
+            MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
+            total_edges = len(graph.edges)
+            while True:
+                flow_incremented = dijkstra_MAXCAP(graph, source, target)
+                if flow_incremented:
+                    path_size = graph.method()  # updates the graph and count path's size
+                    ML += path_size
+                    paths += 1
+                else:
+                    break  # its already max-flow
+            ML = ML / paths
+            MPL = ML / max_dist
+            method_name = method.__name__
+            logs.append([method_name, n, r, c, paths, ML, MPL, total_edges])
+
+    print("All experiments finished.")
+    pass
