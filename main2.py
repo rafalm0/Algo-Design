@@ -338,8 +338,8 @@ def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):
             # iterations of this function (this would be run more than once)
             if edge_cap == 0:
                 continue  # this path was already exhausted in previous iterations
-            if (edge_cap > current.distance) or (
-                    current.distance == math.inf):  # here we see what would be the max deliverable flow to that neighbour
+            # here we see what would be the max deliverable flow to that neighbour is
+            if current.distance > edge_cap:
                 max_to_neighbour = edge_cap
             else:
                 max_to_neighbour = current.distance
@@ -362,7 +362,7 @@ if __name__ == '__main__':
     # r_values = [.2, .3]
     # upper_cap_values = [2, 5]
 
-    n_values = [20]
+    n_values = [100]
     r_values = [.3]
     upper_cap_values = [5]
     graphs = []
@@ -430,7 +430,7 @@ if __name__ == '__main__':
                     break  # its already max-flow
             ML = ML / paths
             MPL = ML / max_dist
-            method_name = method.__name__
+            method_name = method
             logs.append([method_name, n, r, c, paths, ML, MPL, total_edges])
 
     print("All experiments finished.")
