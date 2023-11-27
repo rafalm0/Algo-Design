@@ -274,9 +274,7 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
         for neighbour in current.edges.keys():
             if current.edges[neighbour].used_cap == current.edges[neighbour].capacity:
                 continue  # this is either a residual edge not to be used or is completly full
-            if neighbour == t:  # found the path
-                neighbour.father = current
-                return True
+
 
             if neighbour.aux_key == math.inf:  # found another not relaxed node
                 neighbour.aux_key = counter
@@ -286,12 +284,23 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
             elif neighbour.distance > current.distance + 1:
                 neighbour.distance = current.distance + 1
                 neighbour.father = current
+            if neighbour == t:  # found the path
+                neighbour.father = current
+                return True
 
             # if (neighbour not in visited) and (neighbour not in q):
             #     q.append(neighbour)
 
     return None
 
+
+def check_target(g, x):
+    target_reachable = []
+    for n in g.nodes:
+        if x in n.edges.keys():
+            if n.edges[x].id > 0:
+                target_reachable.append(n)
+    return target_reachable
 
 def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
     source = s
@@ -307,24 +316,33 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
     source.aux_key = 0
     source.distance = 0
     visited = []
+    backup_try = True
     while len(q) > 0:
         current = min(q, key=lambda a: a.aux_key)
         q.remove(current)
+        if (current.distance == math.inf) and backup_try:
+            q += check_target(g, t)
+            backup_try = False
+
         # visited.append(current)
         for neighbour in current.edges.keys():
+            # if neighbour == t:
+            #     print("test")
             if current.edges[neighbour].used_cap == current.edges[neighbour].capacity:
                 continue  # this is either a residual edge not to be used or is completly full
-            if neighbour == t:  # found the path
-                neighbour.father = current
-                return True
+
 
             if neighbour.aux_key == math.inf:  # found another not relaxed node
                 neighbour.aux_key = int(random() * counter)
                 neighbour.distance = current.distance + 1
                 neighbour.father = current
+                counter -= 1
             if neighbour.distance > current.distance + 1:
                 neighbour.distance = current.distance + 1
                 neighbour.father = current
+            if neighbour == t:  # found the path
+                neighbour.father = current
+                return True
 
             # if (neighbour not in visited) and (neighbour not in q):
             #     q.append(neighbour)
@@ -332,13 +350,7 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
     return None
 
 
-def check_target(g, x):
-    target_reachable = []
-    for n in g.nodes:
-        if x in n.edges.keys():
-            if n.edges[x].id > 0:
-                target_reachable.append(n)
-    return target_reachable
+
 
 
 def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):
@@ -413,7 +425,8 @@ def read_graphs(file_path):
             if type == "graph":
                 graph_id, source_id, sink_id, max_dist, n, r, c = line.split(";")
 
-                graph_id, source_id, sink_id, max_dist, n, r, c = int(graph_id), int(source_id), int(sink_id),int(max_dist), int(n), float(r), int(c)
+                graph_id, source_id, sink_id, max_dist, n, r, c = int(graph_id), int(source_id), int(sink_id), int(
+                    max_dist), int(n), float(r), int(c)
                 source = get_node(nodes, source_id)
                 sink = get_node(nodes, sink_id)
 
@@ -462,6 +475,7 @@ methods = {'SAP': dijkstra_SAP, 'DFS': dijkstra_DFS, 'RANDOM': dijkstra_RANDOM, 
 
 if __name__ == '__main__':
     file_path = 'graphs.txt'
+    output_path = 'logs.csv'
     n_values = [100, 200]
     r_values = [.2, .3]
     upper_cap_values = [2, 5]
@@ -482,6 +496,7 @@ if __name__ == '__main__':
                     g.source = s
                     g.sink = t
                     graphs.append((g, s, t, max_dist, n, r, c))
+        save_graphs(graphs, file_path)
     else:
         graphs = read_graphs(file_path)
 
@@ -552,5 +567,7 @@ if __name__ == '__main__':
             graph.reset_path()
             graph.reset_capacities()
 
-    print("All experiments finished.")
-    save_graphs(graphs, file_path)
+    print("All experiments finished, saving logs on csv...")
+    with open(output_path, 'w') as f:
+        f.write('method,n,r,c,paths,ML,MPL,total_edges\n')
+        f.writelines([','.join([str(v) for v in x]) + '\n' for x in logs])
