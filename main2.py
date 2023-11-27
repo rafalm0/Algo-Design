@@ -413,25 +413,28 @@ def read_graphs(file_path):
             if type == "graph":
                 graph_id, source_id, sink_id, max_dist, n, r, c = line.split(";")
 
+                graph_id, source_id, sink_id, max_dist, n, r, c = int(graph_id), int(source_id), int(sink_id),int(max_dist), int(n), float(r), int(c)
                 source = get_node(nodes, source_id)
                 sink = get_node(nodes, sink_id)
 
                 g = Graph(nodes, edges, sink=sink, source=source)
 
-                graphs.append((g, source_id, sink_id, max_dist, n, r, c))
+                graphs.append((g, source, sink, max_dist, n, r, c))
 
                 nodes = []
                 edges = []
 
             elif type == "node":
                 node_id, x, y = line.split(";")
-                new_node = Node(node_id, x, y)
+                new_node = Node(int(node_id), float(x), float(y))
                 nodes.append(new_node)
             elif type == "edge":
                 edge_id, source_node_id, target_node_id, capacity = line.split(";")
-                source_node = get_node(nodes, source_node_id)
-                target_node = get_node(nodes, target_node_id)
-                new_edge = Edge(edge_id, source=source_node, target=target_node, cap=capacity)
+                source_node = get_node(nodes, int(source_node_id))
+                target_node = get_node(nodes, int(target_node_id))
+                new_edge = Edge(int(edge_id), source=source_node, target=target_node, cap=float(capacity))
+                source_node.edges[target_node] = new_edge
+
                 edges.append(new_edge)
 
     return graphs
@@ -443,14 +446,14 @@ def save_graphs(graphs, path):
             g, s, t, max_dist, n, r, c = graph
 
             for node in g.nodes:
-                line = f"node:{node.id};{node.x};{node.y}"
+                line = f"node:{node.id};{node.x};{node.y}\n"
                 f.write(line)
 
             for edge in g.edges:
-                line = f"edge:{edge.id};{edge.source.id};{edge.target.id};{edge.capacity};"
+                line = f"edge:{edge.id};{edge.source.id};{edge.target.id};{edge.capacity}\n"
                 f.write(line)
 
-            f.write(f"graph:{graph_id};{s.id};{t.id};{max_dist};{n};{r}:{c}")
+            f.write(f"graph:{graph_id};{s.id};{t.id};{max_dist};{n};{r};{c}\n")
 
     return True
 
