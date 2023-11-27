@@ -206,7 +206,7 @@ def get_path_found(g: Graph, s: Node, t: Node):
     current = t
     path_followed = []
     human_readable = []
-    for _ in range(max_path):
+    for _ in range(max_path * 5):
         if current == s:
             path_followed.append(current)
             human_readable.append(f"Node {current.id} : {current.distance}")
@@ -262,7 +262,7 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
         if node != source:
             q.append(node)
             node.aux_key = math.inf
-            node.distance = 0
+            node.distance = math.inf
 
     source.distance = 0
     source.aux_key = 0
@@ -283,7 +283,7 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
                 neighbour.distance = current.distance + 1
                 neighbour.father = current
                 counter -= 1
-            if neighbour.distance > current.distance + 1:
+            elif neighbour.distance > current.distance + 1:
                 neighbour.distance = current.distance + 1
                 neighbour.father = current
 
@@ -302,7 +302,7 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
         if node != source:
             q.append(node)
             node.aux_key = math.inf
-            node.distance = 0
+            node.distance = math.inf
 
     source.aux_key = 0
     source.distance = 0
@@ -396,27 +396,71 @@ def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):
     return None
 
 
+
+def get_node(nodes, queried_id):
+    for node in nodes:
+        if queried_id == node.id:
+            return node
+
 def read_graphs(file_path):
     graphs = []
-    with open(path, 'r') as f:
+    with open(file_path, 'r') as f:
+        nodes = []
+        edges = []
         for line in f.readlines():
-            pass
+            type,line = line.split(":")
+
+            if type == "graph":
+                graph_id, source_id, sink_id, max_dist, n, r, c = line.split(";")
+
+                source = get_node(nodes, source_id)
+                sink = get_node(nodes, sink_id)
+
+                g = Graph(nodes, edges, sink=sink, source=source)
+
+                graphs.append((g, source_id, sink_id, max_dist, n, r, c))
+
+                nodes = []
+                edges = []
+
+            elif type == "node":
+                node_id,x,y = line.split(";")
+                new_node = Node(node_id,x,y)
+                nodes.append(new_node)
+            elif type == "edge":
+                edge_id,source_node_id,target_node_id,capacity = line.split(";")
+                source_node = get_node(nodes,source_node_id)
+                target_node = get_node(nodes,target_node_id)
+                new_edge = Edge(edge_id,source=source_node,target=target_node,cap=capacity)
+                edges.append(new_edge)
+
+
 
     return graphs
 
 
 def save_graphs(graphs, path):
     with open(path, 'w') as f:
-        for graph in graphs:
-            pass
+        for graph_id, graph in enumerate(graphs):
+            g, s, t, max_dist, n, r, c = graph
+
+            for node in g.nodes:
+                line = f"node:{node.id};{node.x};{node.y}"
+                f.write(line)
+
+            for edge in g.edges:
+                line = f"edge:{edge.id};{edge.source.id};{edge.target.id};{edge.capacity};"
+                f.write(line)
+
+            f.write(f"graph:{graph_id};{graph.source.id};{graph.sink.id};{max_dist};{n};{r}:{c}")
 
     return True
 
 
-methods = {'MAXCAP': dijkstra_MAXCAP, 'RANDOM': dijkstra_RANDOM, 'DFS': dijkstra_DFS, 'SAP': dijkstra_SAP}
+methods = {'SAP': dijkstra_SAP, 'DFS': dijkstra_DFS, 'RANDOM': dijkstra_RANDOM, 'MAXCAP': dijkstra_MAXCAP}
 
 if __name__ == '__main__':
-    file_path = 'graphs.csv'
+    file_path = 'graphs.txt'
     n_values = [100, 200]
     r_values = [.2, .3]
     upper_cap_values = [2, 5]
@@ -441,13 +485,15 @@ if __name__ == '__main__':
         graphs = read_graphs(file_path)
 
     # this aprt is testing the graphs
-    for g, s, t, max_dist, n, r, c in graphs:
+    for graph_id, (g, s, t, max_dist, n, r, c) in enumerate(graphs):
+        print(f"Testing on graph {graph_id + 1}/{len(graphs)}...")
         found_path = dijkstra_SAP(g, s, t)
         if not found_path:
             raise RuntimeError(f"could not find path in SAP")
         path, readable = get_path_found(g, s, t)
         g.reset_path()
         g.reset_capacities()
+        print("SAP ok...", end=' ')
 
         found_path_2 = dijkstra_DFS(g, s, t)
         if not found_path_2:
@@ -455,6 +501,7 @@ if __name__ == '__main__':
         path2, readable2 = get_path_found(g, s, t)
         g.reset_path()
         g.reset_capacities()
+        print("DFS ok...", end=' ')
 
         found_path_3 = dijkstra_RANDOM(g, s, t)
         if not found_path_3:
@@ -462,6 +509,7 @@ if __name__ == '__main__':
         path3, readable3 = get_path_found(g, s, t)
         g.reset_path()
         g.reset_capacities()
+        print("RANDOM ok...", end=' ')
 
         found_path_4 = dijkstra_MAXCAP(g, s, t)
         if not found_path_4:
@@ -470,9 +518,12 @@ if __name__ == '__main__':
         # djikstra and now it has cycles since we put augmenting path
         g.reset_path()
         g.reset_capacities()
-    print("Test ok, starting experiments...")
+        print("MAXCAP ok...")
+    print("Test ok, starting experiments...", end=' ')
 
     logs = []
+
+    save_graphs(graphs, file_path)
 
     # experiments will start now
     for method in methods.keys():
@@ -501,4 +552,4 @@ if __name__ == '__main__':
             graph.reset_capacities()
 
     print("All experiments finished.")
-    pass
+    save_graphs(graphs, file_path)
