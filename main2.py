@@ -262,7 +262,7 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
         if node != source:
             q.append(node)
             node.aux_key = math.inf
-            node.distance = math.inf
+            node.distance = 0
 
     source.distance = 0
     source.aux_key = 0
@@ -280,6 +280,8 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
 
             if neighbour.aux_key == math.inf:  # found another not relaxed node
                 neighbour.aux_key = counter
+                neighbour.distance = current.distance + 1
+                neighbour.father = current
                 counter -= 1
             if neighbour.distance > current.distance + 1:
                 neighbour.distance = current.distance + 1
@@ -300,7 +302,7 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
         if node != source:
             q.append(node)
             node.aux_key = math.inf
-            node.distance = math.inf
+            node.distance = 0
 
     source.aux_key = 0
     source.distance = 0
@@ -318,6 +320,8 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
 
             if neighbour.aux_key == math.inf:  # found another not relaxed node
                 neighbour.aux_key = int(random() * counter)
+                neighbour.distance = current.distance + 1
+                neighbour.father = current
             if neighbour.distance > current.distance + 1:
                 neighbour.distance = current.distance + 1
                 neighbour.father = current
@@ -417,8 +421,9 @@ if __name__ == '__main__':
     r_values = [.2, .3]
     upper_cap_values = [2, 5]
 
+    graphs = []
+    # generating the graphs if they do not exist
     if not os.path.exists(file_path):
-        graphs = []
         for n in n_values:
             for r in r_values:
                 for c in upper_cap_values:
@@ -432,7 +437,10 @@ if __name__ == '__main__':
                     g.source = s
                     g.sink = t
                     graphs.append((g, s, t, max_dist, n, r, c))
+    else:
+        graphs = read_graphs(file_path)
 
+    # this aprt is testing the graphs
     for g, s, t, max_dist, n, r, c in graphs:
         found_path = dijkstra_SAP(g, s, t)
         if not found_path:
@@ -462,12 +470,11 @@ if __name__ == '__main__':
         # djikstra and now it has cycles since we put augmenting path
         g.reset_path()
         g.reset_capacities()
-
-        graphs.append((g, s, t, max_dist, n, r, c))
     print("Test ok, starting experiments...")
 
     logs = []
 
+    # experiments will start now
     for method in methods.keys():
         print(f"Experiments with {method}")
         for graph_id, (graph, source, target, max_dist, n, r, c) in enumerate(graphs):
