@@ -18,6 +18,7 @@ class Node:
     def __init__(self, identifier, x=.0, y=.0, distance=math.inf):
         self.id = identifier
         self.distance = distance
+        self.aux_key= None
         self.x = x
         self.y = y
         self.edges = {}
@@ -39,6 +40,7 @@ class Graph:
         for node in self.nodes:
             node.distance = math.inf
             node.father = None
+            node.aux_key = None
         self.source.distance = 0
 
     def reset_capacities(self):
@@ -96,7 +98,8 @@ class Graph:
             else:
                 inverted_edge = edge.target.edges[edge.source]
                 inverted_edge.used_cap = edge.capacity - edge.used_cap
-                if inverted_edge.used_cap < -0.00000000000001: raise ValueError(f"Residual path fell below zero: {inverted_edge.used_cap}")
+                if inverted_edge.used_cap < -0.00000000000001: raise ValueError(
+                    f"Residual path fell below zero: {inverted_edge.used_cap}")
 
         return path_size
 
@@ -163,6 +166,8 @@ def bfs(s: Node, target=None):
         current = q.pop(0)
         visited.append(current)
         for neighbour in current.edges.keys():
+            if current.edges[neighbour].used_cap == current.edges[neighbour].capacity:
+                continue  # this is either a residual edge not to be used or is completly full
             if neighbour not in visited:
                 if current.edges[neighbour].used_cap == current.edges[neighbour].capacity:
                     continue  # this is either a residual edge not to be used or is completly full
@@ -208,7 +213,8 @@ def get_path_found(g: Graph, s: Node, t: Node):
         path_followed.append(current)
         human_readable.append(f"Node {current.id} : {current.distance}")
         edge = current.father.edges[current]
-        human_readable.append(f"Edge {edge.id} ({edge.source.id} : {edge.source.distance} -> {edge.capacity}-> {edge.target.id}): {edge.target.distance}")
+        human_readable.append(
+            f"Edge {edge.id} ({edge.source.id} : {edge.source.distance} -> {edge.capacity}-> {edge.target.id}): {edge.target.distance}")
         current = current.father
 
     else:
@@ -243,7 +249,7 @@ def dijkstra_SAP(g: Graph, s: Node, t: Node):
             if (neighbour not in visited) and (neighbour not in q):
                 q.append(neighbour)
 
-    return False
+    return None
 
 
 def dijkstra_DFS(g: Graph, s: Node, t: Node):
@@ -254,13 +260,16 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
     for node in g.nodes:
         if node != source:
             q.append(node)
+            node.aux_key = math.inf
+            node.distance = math.inf
 
     source.distance = 0
+    source.aux_key = 0
     visited = []
     while len(q) > 0:
-        current = min(q, key=lambda a: a.distance)
+        current = min(q, key=lambda a: a.aux_key)
         q.remove(current)
-        visited.append(current)
+        # visited.append(current)
         for neighbour in current.edges.keys():
             if current.edges[neighbour].used_cap == current.edges[neighbour].capacity:
                 continue  # this is either a residual edge not to be used or is completly full
@@ -268,18 +277,17 @@ def dijkstra_DFS(g: Graph, s: Node, t: Node):
                 neighbour.father = current
                 return True
 
-            if neighbour.distance == math.inf:  # found another not relaxed node
-                neighbour.distance = counter
+            if neighbour.aux_key == math.inf:  # found another not relaxed node
+                neighbour.aux_key = counter
                 counter -= 1
+            if neighbour.distance > current.distance + 1:
+                neighbour.distance = current.distance + 1
                 neighbour.father = current
-            # elif neighbour.distance > current.distance + 1:
-            #     neighbour.distance = current.distance + 1
-            #     neighbour.father = current
 
-            if (neighbour not in visited) and (neighbour not in q):
-                q.append(neighbour)
+            # if (neighbour not in visited) and (neighbour not in q):
+            #     q.append(neighbour)
 
-    return False
+    return None
 
 
 def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
@@ -290,13 +298,17 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
     for node in g.nodes:
         if node != source:
             q.append(node)
+            node.aux_key = math.inf
+            node.distance = math.inf
 
+
+    source.aux_key = 0
     source.distance = 0
     visited = []
     while len(q) > 0:
-        current = min(q, key=lambda a: a.distance)
+        current = min(q, key=lambda a: a.aux_key)
         q.remove(current)
-        visited.append(current)
+        # visited.append(current)
         for neighbour in current.edges.keys():
             if current.edges[neighbour].used_cap == current.edges[neighbour].capacity:
                 continue  # this is either a residual edge not to be used or is completly full
@@ -304,17 +316,25 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
                 neighbour.father = current
                 return True
 
-            if neighbour.distance == math.inf:  # found another not relaxed node
-                neighbour.distance = int(random() * counter)
+            if neighbour.aux_key == math.inf:  # found another not relaxed node
+                neighbour.aux_key = int(random() * counter)
+            if neighbour.distance > current.distance + 1:
+                neighbour.distance = current.distance + 1
                 neighbour.father = current
-            # elif neighbour.distance > current.distance + 1:
-            #     neighbour.distance = current.distance + 1
-            #     neighbour.father = current
 
-            if (neighbour not in visited) and (neighbour not in q):
-                q.append(neighbour)
+            # if (neighbour not in visited) and (neighbour not in q):
+            #     q.append(neighbour)
 
-    return False
+    return None
+
+
+def check_target(g, x):
+    target_reachable = []
+    for n in g.nodes:
+        if x in n.edges.keys():
+            if n.edges[x].id > 0:
+                target_reachable.append(n)
+    return target_reachable
 
 
 def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):
@@ -328,11 +348,28 @@ def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):
 
     source.distance = math.inf  # the source has maximum capacity
     visited = []
+    backup_try = True
     while len(q) > 0:
         current = max(q, key=lambda a: a.distance)
+        if current == t:  # this part handle some problems with the randomness of max when weights are equal
+            if t.distance == 0:
+                if len(q) < 2:
+                    return None
+                else:
+                    # print("target was selected with flow zero, skipping this iteration")
+                    # q += check_target(g, t)
+                    if backup_try:
+                        q += check_target(g, t)
+                        backup_try = False
+                        continue
+                    else:
+                        return None
         q.remove(current)
-        visited.append(current)
-        for neighbour in current.edges.keys():
+        # visited.append(current)
+        if current == t:
+            return current.distance
+        neighbours = current.edges.keys()
+        for neighbour in neighbours:
             edge = current.edges[neighbour]
             edge_cap = edge.capacity - edge.used_cap  # used cap represent flow already set as being used by other
             # iterations of this function (this would be run more than once)
@@ -345,31 +382,31 @@ def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):
                 max_to_neighbour = current.distance
 
             if neighbour.distance < max_to_neighbour:
+                q.append(neighbour)
                 neighbour.distance = max_to_neighbour
                 neighbour.father = current
-            if neighbour == t:
-                return True
-            if (neighbour not in visited) and (neighbour not in q):
-                q.append(neighbour)
 
-    return False
+            # if (neighbour not in visited) and (neighbour not in q):
+            #     q.append(neighbour)
+
+    return None
 
 
 methods = {'MAXCAP': dijkstra_MAXCAP, 'RANDOM': dijkstra_RANDOM, 'DFS': dijkstra_DFS, 'SAP': dijkstra_SAP}
 
 if __name__ == '__main__':
-    # n_values = [100, 200]
-    # r_values = [.2, .3]
-    # upper_cap_values = [2, 5]
+    n_values = [100, 200]
+    r_values = [.2, .3]
+    upper_cap_values = [2, 5]
 
-    n_values = [100]
-    r_values = [.3]
-    upper_cap_values = [5]
+    # n_values = [100]
+    # r_values = [.3]
+    # upper_cap_values = [5]
     graphs = []
     for n in n_values:
         for r in r_values:
             for c in upper_cap_values:
-                g = generate_graph(n, r, c,reverts=True)
+                g = generate_graph(n, r, c, reverts=True)
 
                 s, t, max_dist = random_source_target(g)
                 while t is None:
@@ -416,14 +453,14 @@ if __name__ == '__main__':
     for method in methods.keys():
         print(f"Experiments with {method}")
         for graph_id, (graph, source, target, max_dist, n, r, c) in enumerate(graphs):
-            print(f"Experiments on graph {graph_id+1}/{len(graphs)}...")
+            print(f"Experiments on graph {graph_id + 1}/{len(graphs)}...")
             paths = 0  # number of augmenting paths
             ML = 0  # avg of all augmenting paths
             MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
             total_edges = len(graph.edges) / 2  # divide by two to remove the reverses of each edge
             while True:
                 flow_incremented = methods[method](graph, source, target)
-                if flow_incremented:
+                if flow_incremented is not None:
                     path, readable = get_path_found(graph, source, target)
                     path_size = graph.fill_backwards_path()  # updates the graph and count path's size
                     graph.reset_path()
