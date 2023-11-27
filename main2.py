@@ -396,11 +396,11 @@ def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):
     return None
 
 
-
 def get_node(nodes, queried_id):
     for node in nodes:
         if queried_id == node.id:
             return node
+
 
 def read_graphs(file_path):
     graphs = []
@@ -408,7 +408,7 @@ def read_graphs(file_path):
         nodes = []
         edges = []
         for line in f.readlines():
-            type,line = line.split(":")
+            type, line = line.split(":")
 
             if type == "graph":
                 graph_id, source_id, sink_id, max_dist, n, r, c = line.split(";")
@@ -424,17 +424,15 @@ def read_graphs(file_path):
                 edges = []
 
             elif type == "node":
-                node_id,x,y = line.split(";")
-                new_node = Node(node_id,x,y)
+                node_id, x, y = line.split(";")
+                new_node = Node(node_id, x, y)
                 nodes.append(new_node)
             elif type == "edge":
-                edge_id,source_node_id,target_node_id,capacity = line.split(";")
-                source_node = get_node(nodes,source_node_id)
-                target_node = get_node(nodes,target_node_id)
-                new_edge = Edge(edge_id,source=source_node,target=target_node,cap=capacity)
+                edge_id, source_node_id, target_node_id, capacity = line.split(";")
+                source_node = get_node(nodes, source_node_id)
+                target_node = get_node(nodes, target_node_id)
+                new_edge = Edge(edge_id, source=source_node, target=target_node, cap=capacity)
                 edges.append(new_edge)
-
-
 
     return graphs
 
@@ -452,7 +450,7 @@ def save_graphs(graphs, path):
                 line = f"edge:{edge.id};{edge.source.id};{edge.target.id};{edge.capacity};"
                 f.write(line)
 
-            f.write(f"graph:{graph_id};{graph.source.id};{graph.sink.id};{max_dist};{n};{r}:{c}")
+            f.write(f"graph:{graph_id};{s.id};{t.id};{max_dist};{n};{r}:{c}")
 
     return True
 
