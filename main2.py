@@ -1,3 +1,4 @@
+import os.path
 from random import random, choice
 import math
 
@@ -18,7 +19,7 @@ class Node:
     def __init__(self, identifier, x=.0, y=.0, distance=math.inf):
         self.id = identifier
         self.distance = distance
-        self.aux_key= None
+        self.aux_key = None
         self.x = x
         self.y = y
         self.edges = {}
@@ -301,7 +302,6 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
             node.aux_key = math.inf
             node.distance = math.inf
 
-
     source.aux_key = 0
     source.distance = 0
     visited = []
@@ -392,60 +392,78 @@ def dijkstra_MAXCAP(g: Graph, s: Node, t: Node):
     return None
 
 
+def read_graphs(file_path):
+    graphs = []
+    with open(path, 'r') as f:
+        for line in f.readlines():
+            pass
+
+    return graphs
+
+
+def save_graphs(graphs, path):
+    with open(path, 'w') as f:
+        for graph in graphs:
+            pass
+
+    return True
+
+
 methods = {'MAXCAP': dijkstra_MAXCAP, 'RANDOM': dijkstra_RANDOM, 'DFS': dijkstra_DFS, 'SAP': dijkstra_SAP}
 
 if __name__ == '__main__':
+    file_path = 'graphs.csv'
     n_values = [100, 200]
     r_values = [.2, .3]
     upper_cap_values = [2, 5]
 
-    # n_values = [100]
-    # r_values = [.3]
-    # upper_cap_values = [5]
-    graphs = []
-    for n in n_values:
-        for r in r_values:
-            for c in upper_cap_values:
-                g = generate_graph(n, r, c, reverts=True)
-
-                s, t, max_dist = random_source_target(g)
-                while t is None:
-                    print(f"Graph generated with source alone, no target possible, re-generating graph...")
+    if not os.path.exists(file_path):
+        graphs = []
+        for n in n_values:
+            for r in r_values:
+                for c in upper_cap_values:
                     g = generate_graph(n, r, c, reverts=True)
+
                     s, t, max_dist = random_source_target(g)
-                g.source = s
-                g.sink = t
+                    while t is None:
+                        print(f"Graph generated with source alone, no target possible, re-generating graph...")
+                        g = generate_graph(n, r, c, reverts=True)
+                        s, t, max_dist = random_source_target(g)
+                    g.source = s
+                    g.sink = t
+                    graphs.append((g, s, t, max_dist, n, r, c))
 
-                found_path = dijkstra_SAP(g, s, t)
-                if not found_path:
-                    raise RuntimeError(f"could not find path in SAP")
-                path, readable = get_path_found(g, s, t)
-                g.reset_path()
-                g.reset_capacities()
+    for g, s, t, max_dist, n, r, c in graphs:
+        found_path = dijkstra_SAP(g, s, t)
+        if not found_path:
+            raise RuntimeError(f"could not find path in SAP")
+        path, readable = get_path_found(g, s, t)
+        g.reset_path()
+        g.reset_capacities()
 
-                found_path_2 = dijkstra_DFS(g, s, t)
-                if not found_path_2:
-                    raise RuntimeError(f"could not find path in DFS like")
-                path2, readable2 = get_path_found(g, s, t)
-                g.reset_path()
-                g.reset_capacities()
+        found_path_2 = dijkstra_DFS(g, s, t)
+        if not found_path_2:
+            raise RuntimeError(f"could not find path in DFS like")
+        path2, readable2 = get_path_found(g, s, t)
+        g.reset_path()
+        g.reset_capacities()
 
-                found_path_3 = dijkstra_RANDOM(g, s, t)
-                if not found_path_3:
-                    raise RuntimeError(f"could not find path in RANDOM")
-                path3, readable3 = get_path_found(g, s, t)
-                g.reset_path()
-                g.reset_capacities()
+        found_path_3 = dijkstra_RANDOM(g, s, t)
+        if not found_path_3:
+            raise RuntimeError(f"could not find path in RANDOM")
+        path3, readable3 = get_path_found(g, s, t)
+        g.reset_path()
+        g.reset_capacities()
 
-                found_path_4 = dijkstra_MAXCAP(g, s, t)
-                if not found_path_4:
-                    raise RuntimeError(f"could not find path in MAXCAP")
-                path4, readable4 = get_path_found(g, s, t)  # the problem is we are trying to find max weight in
-                # djikstra and now it has cycles since we put augmenting path
-                g.reset_path()
-                g.reset_capacities()
+        found_path_4 = dijkstra_MAXCAP(g, s, t)
+        if not found_path_4:
+            raise RuntimeError(f"could not find path in MAXCAP")
+        path4, readable4 = get_path_found(g, s, t)  # the problem is we are trying to find max weight in
+        # djikstra and now it has cycles since we put augmenting path
+        g.reset_path()
+        g.reset_capacities()
 
-                graphs.append((g, s, t, max_dist, n, r, c))
+        graphs.append((g, s, t, max_dist, n, r, c))
     print("Test ok, starting experiments...")
 
     logs = []
