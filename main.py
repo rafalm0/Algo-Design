@@ -1,6 +1,7 @@
 import os.path
 from random import random, choice
 import math
+import networkx as nx
 
 
 class Edge:
@@ -52,7 +53,6 @@ class Graph:
                 edge.used_cap = 0
         return
 
-    # TODO fix this fill backwards
     def fill_backwards_path(self, sink: Node = None,
                             target: Node = None):  # this concretes the path and makes it permanent for
         # next searches (residual net)
@@ -102,7 +102,7 @@ class Graph:
                 if inverted_edge.used_cap < -0.00000000000001: raise ValueError(
                     f"Residual path fell below zero: {inverted_edge.used_cap}")
 
-        return path_size
+        return path_size, max_flow
 
 
 def generate_graph(n, r, upper_cap, reverts=False):
@@ -324,6 +324,12 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
             q += check_target(g, t)
             backup_try = False
 
+        if current == t:
+            if current.distance == math.inf:
+                return None
+            else:
+                return current.distance
+
         # visited.append(current)
         for neighbour in current.edges.keys():
             # if neighbour == t:
@@ -341,8 +347,8 @@ def dijkstra_RANDOM(g: Graph, s: Node, t: Node):
                 neighbour.distance = current.distance + 1
                 neighbour.father = current
             if neighbour == t:  # found the path
-                neighbour.father = current
-                return True
+                if neighbour not in q:
+                    q.append(neighbour)
 
             # if (neighbour not in visited) and (neighbour not in q):
             #     q.append(neighbour)
@@ -471,7 +477,18 @@ def save_graphs(graphs, path):
     return True
 
 
-methods = {'SAP': dijkstra_SAP, 'DFS': dijkstra_DFS, 'RANDOM': dijkstra_RANDOM, 'MAXCAP': dijkstra_MAXCAP}
+def find_correct_max_flow(g,s,t):
+    G = nx.Graph()
+    for n in g.nodes:
+        G.add_node(n.id)
+    for e in g.edges:
+        if e.id >=0:
+            G.add_edge(e.source.id,e.target.id,capacity=e.capacity)
+
+    return nx.maximum_flow(G,s.id,t.id)
+
+
+methods = {'MAXCAP': dijkstra_MAXCAP,'SAP': dijkstra_SAP, 'DFS': dijkstra_DFS, 'RANDOM': dijkstra_RANDOM}
 
 if __name__ == '__main__':
     file_path = 'graphs.txt'
@@ -534,12 +551,16 @@ if __name__ == '__main__':
         # djikstra and now it has cycles since we put augmenting path
         g.reset_path()
         g.reset_capacities()
+
         print("MAXCAP ok...")
     print("Test ok, starting experiments...", end=' ')
 
     logs = []
 
     save_graphs(graphs, file_path)
+
+
+
 
     # experiments will start now
     for method in methods.keys():
@@ -550,16 +571,19 @@ if __name__ == '__main__':
             ML = 0  # avg of all augmenting paths
             MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
             total_edges = len(graph.edges) / 2  # divide by two to remove the reverses of each edge
+            max_flow_calculated = 0
             while True:
                 flow_incremented = methods[method](graph, source, target)
                 if flow_incremented is not None:
                     path, readable = get_path_found(graph, source, target)
-                    path_size = graph.fill_backwards_path()  # updates the graph and count path's size
+                    path_size, flow = graph.fill_backwards_path()  # updates the graph and count path's size
                     graph.reset_path()
                     ML += path_size
                     paths += 1
+                    max_flow_calculated += flow
                 else:
                     break  # its already max-flow
+            max_flow = find_correct_max_flow(g, s, t)
             ML = ML / paths
             MPL = ML / max_dist
             method_name = method
