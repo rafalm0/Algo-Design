@@ -28,6 +28,18 @@ or
 python main.py
 ```
 
+
+Lines 8 to 13 can be commented to disable networkX if desired.
+Another option is to simply not install networkx on the env.
+```
+8 - try:
+9 -     import networkx as nx
+10- 
+11-     nx_imported = True
+12- except ImportError:
+13-     pass
+```
+
 ## 3 - Running scenarios
 
 If there is no "graphs.txt" on the directory, the code will generate the graphs, then export into a new "graphs.txt" 
