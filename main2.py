@@ -217,7 +217,7 @@ def save_graphs(graphs, path):
             g = graph.meta_data['g']
             s = graph.meta_data['s']
             t = graph.meta_data['t']
-            max_dist = graph.meta_data['max_dist']
+            target_distance = graph.meta_data['target_distance']
             n = graph.meta_data['n']
             r = graph.meta_data['r']
             c = graph.meta_data['c']  # upperCap
@@ -232,7 +232,7 @@ def save_graphs(graphs, path):
                         line = f"edge:{n1.id};{n2.id};{g.edges[n1][n2].capacity}\n"
                         f.write(line)
 
-            f.write(f"graph:{s.id};{t.id};{max_dist};{n};{r};{c}\n")
+            f.write(f"graph:{s.id};{t.id};{target_distance};{n};{r};{c}\n")
 
     return True
 
@@ -245,13 +245,13 @@ def load_graphs(path):
             type, line = line.split(":")
 
             if type == "graph":
-                source_id, target_id, max_dist, n, r, c = line.split(";")
+                source_id, target_id, target_distance, n, r, c = line.split(";")
 
-                source_id, target_id, max_dist, n, r, c = int(source_id), int(target_id), int(
-                    max_dist), int(n), float(r), int(c)
+                source_id, target_id, target_distance, n, r, c = int(source_id), int(target_id), int(
+                    target_distance), int(n), float(r), int(c)
 
                 g = Graph(None, None, None, external=True)
-                meta_data = {"s": source_id, 't': target_id, 'max_dist': max_dist, 'n': n, 'r': r, 'c': c}
+                meta_data = {"s": source_id, 't': target_id, 'target_distance': target_distance, 'n': n, 'r': r, 'c': c}
                 g.initialize(nodes, edges, meta_data)
 
                 graphs.append(g)
@@ -275,43 +275,55 @@ def load_graphs(path):
     return graphs
 
 
-g = Graph(200, 0.2, 2)
+if __name__ == '__main__':
+    file_path = 'graphs.txt'
+    output_path = 'logs.csv'
+    n_values = [100, 200]
+    r_values = [.2, .3]
+    upper_cap_values = [2, 5]
 
-source = g.nodes[0]
-target, distance = g.find_farthest_node(source)
+    graphs = []
+    if not os.path.exists(file_path):
+        for n in n_values:
+            for r in r_values:
+                for c in upper_cap_values:
+                    g = Graph(n, r, c)
 
-if source == target:
-    print("Warning, Source was generated isolated")
-    quit()
-print(f"got distance of {distance} for node {target.id}")
+                    source = g.nodes[0]
+                    target, distance = g.find_farthest_node(source)
 
-shortest_path, shortest_distance = g.SAP_DFS_RANDOM(source, target, method='SAP')
+                    print(f"got distance of {distance} for node {target.id}")
 
-G = nx.DiGraph()
+                    shortest_path, target_distance = g.SAP_DFS_RANDOM(source, target, method='SAP')
+                    g.reset()
 
-for node in g.nodes:
-    G.add_node(node.id)
+                    print("Shortest Path:", [node.id for node in shortest_path])
+                    print("Shortest Distance:", target_distance)
+                    print(f"My implementation Max Flow: {g.ford_fulkerson(source, target, method='MAXCAP')}")
+                    g.reset()
+                    g.meta_data['s'] = source
+                    g.meta_data['t'] = target
+                    g.meta_data['target_distance'] = target_distance
+                    graphs.append(g)
 
-for u in g.nodes:
-    for v in g.nodes:
-        if g.edges[u][v].capacity - g.edges[u][v].flow > 0:
-            G.add_edge(u.id, v.id, capacity=g.edges[u][v].capacity, flow=g.edges[u][v].flow)
+                    # -------------------------------------------------------------------------------------------
+                    # networkX being used ONLY for VALIDATION
+                    G = nx.DiGraph()
 
-print("Shortest Path:", [node.id for node in shortest_path])
-print("Shortest Distance:", shortest_distance)
+                    for node in g.nodes:
+                        G.add_node(node.id)
 
-networkx_max_flow = nx.maximum_flow(G, source.id, target.id, flow_func=nx.flow.shortest_augmenting_path)
-# Compare the results
-g.reset()
-print(f"Your Implementation Max Flow: {g.ford_fulkerson(source, target, method='MAXCAP')}")
-print(f"NetworkX Max Flow: {networkx_max_flow}")
+                    for u in g.nodes:
+                        for v in g.nodes:
+                            if g.edges[u][v].capacity - g.edges[u][v].flow > 0:
+                                G.add_edge(u.id, v.id, capacity=g.edges[u][v].capacity, flow=g.edges[u][v].flow)
 
-# Draw the graph
-# pos = {node.id: (node.x, node.y) for node in g.nodes}
-# edge_labels = {(u, v): f"{round(d['flow'], 2)}/{round(d['capacity'], 2)}" for u, v, d in G.edges(data=True)}
-# node_labels = {node.id: node.id for node in g.nodes}
-#
-# nx.draw(G, pos, with_labels=True, labels=node_labels, font_weight='bold', node_size=700, node_color='lightblue')
-# nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='red')
-#
-# plt.show()
+                    networkx_max_flow = nx.maximum_flow(G, source.id, target.id,
+                                                        flow_func=nx.flow.shortest_augmenting_path)
+                    print(f"NetworkX Max Flow: {networkx_max_flow}")
+
+                    # -------------------------------------------------------------------------------------------
+
+        save_graphs(graphs, file_path)
+    else:
+        graphs = load_graphs(file_path)
