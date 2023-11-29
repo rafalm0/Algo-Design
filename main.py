@@ -1,6 +1,5 @@
 import os.path
 from random import random, choice, uniform
-import matplotlib.pyplot as plt
 import math
 import networkx as nx
 
@@ -57,6 +56,7 @@ class Graph:
                     edge.flow = 0
 
     def generate_sink_source_graph(self, r, upperCap):
+        edge_count = 0
         for vertex in self.nodes:
             for vertex_2 in self.nodes:
                 if vertex.id != vertex_2.id:
@@ -67,13 +67,16 @@ class Graph:
                         if rand < .5:
                             if self.edges[vertex][vertex_2].capacity == 0:
                                 if self.edges[vertex_2][vertex].capacity == 0:
+                                    edge_count +=1
                                     capacity = uniform(1, upperCap)
                                     self.link_nodes(vertex, vertex_2, capacity)
                         else:
                             if self.edges[vertex_2][vertex].capacity == 0:
                                 if self.edges[vertex][vertex_2].capacity == 0:
+                                    edge_count += 1
                                     capacity = uniform(1, upperCap)
                                     self.link_nodes(vertex_2, vertex, capacity)
+        self.meta_data['edge_count'] = edge_count
         return True
 
     def find_farthest_node(self, source):
@@ -193,14 +196,18 @@ class Graph:
         return path[::-1], cap_until[target.id]
 
     def ford_fulkerson(self, source, target, method='SAP'):
+        self.reset()
         if method == "MAXCAP":
             func = self.MAXCAP
         else:
             func = self.SAP_DFS_RANDOM
         max_flow = 0
         path, distance = func(source, target, method)
-
+        self.meta_data['augmenting_path_count'] = 0
+        self.meta_data['augmenting_path_length'] = []
         while len(path) > 1:
+            self.meta_data['augmenting_path_count'] = self.meta_data['augmenting_path_count'] + 1
+            self.meta_data['augmenting_path_length'].append(len(path))
             capacity = self.max_supported_flow(path)
             # print(f"augmenting path in {capacity}")  # uncomment if desires to see all augments
             self.update_residuals(path, capacity)
@@ -241,6 +248,7 @@ def load_graphs(path):
     with open(path, 'r') as f:
         nodes = []
         edges = None
+        edge_count = 0
         for line in f.readlines():
             type, line = line.split(":")
 
@@ -251,13 +259,15 @@ def load_graphs(path):
                     target_distance), int(n), float(r), int(c)
 
                 g = Graph(None, None, None, external=True)
-                meta_data = {"s": source_id, 't': target_id, 'target_distance': target_distance, 'n': n, 'r': r, 'c': c}
+                meta_data = {"s": source_id, 't': target_id, 'target_distance': target_distance, 'n': n, 'r': r,
+                             'c': c, 'edge_count': edge_count}
                 g.initialize(nodes, edges, meta_data)
 
                 graphs.append(g)
 
                 nodes = []
                 edges = None
+                edge_count = 0
 
             elif type == "node":
                 node_id, x, y = line.split(";")
@@ -273,6 +283,7 @@ def load_graphs(path):
                 edges[nodes[t_id]][nodes[s_id]].capacity = capacity
                 edges[nodes[t_id]][nodes[s_id]].flow = capacity
                 edges[nodes[t_id]][nodes[s_id]].residual = True
+                edge_count +=1
 
     return graphs
 
@@ -299,7 +310,6 @@ if __name__ == '__main__':
                     print(f"Got distance of {distance} for node {target.id}")
 
                     shortest_path, target_distance = g.SAP_DFS_RANDOM(source, target, method='SAP')
-                    g.reset()
 
                     print("Shortest Path:", [node.id for node in shortest_path])
                     print("Shortest Distance:", target_distance)
@@ -334,3 +344,39 @@ if __name__ == '__main__':
         save_graphs(graphs, file_path)
     else:
         graphs = load_graphs(file_path)
+
+    print("Starting experiments...")
+
+    logs = []
+    for i, graph in enumerate(graphs):
+        s = graph.meta_data['s']
+        t = graph.meta_data['t']
+        target_distance = graph.meta_data['target_distance']
+        n = graph.meta_data['n']
+        r = graph.meta_data['r']
+        c = graph.meta_data['c']  # upperCap
+        print(f"-----------------------------------------")
+        print(f"Experiment on graph {i + 1}/{len(graphs)}")
+
+        print(f"n:{n}   r:{r}   upperCap:{c}")
+        for method in ['SAP', 'DFS', 'MAXCAP', 'RANDOM']:
+            print(f"\t Method: {method}")
+            paths = 0  # number of augmenting paths
+            ML = 0  # avg of all augmenting paths
+            MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
+            total_edges = graph.meta_data['edge_count']
+
+            my_max_flow = graph.ford_fulkerson(s, t, method=method)
+            paths = graph.meta_data['augmenting_path_count']
+            ML = sum(graph.meta_data['augmenting_path_length'])
+
+            ML = ML / paths
+            MPL = ML / target_distance
+            logs.append([method, n, r, c, paths, ML, MPL, total_edges])
+            graph.reset()
+
+    print("All experiments finished, saving logs on csv...")
+    with open(output_path, 'w') as f:
+        f.write('method,n,r,c,paths,ML,MPL,total_edges\n')
+        f.writelines([','.join([str(v) for v in x]) + '\n' for x in logs])
+        
