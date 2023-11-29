@@ -23,13 +23,16 @@ class Graph:
 
     def __init__(self, n, r, upperCap, external=False):
         if not external:
+            self.meta_data = {}
             self.nodes = []
             for node_id in range(n):
                 self.nodes.append(Node(node_id, uniform(0, 1), uniform(0, 1)))
 
             self.edges = {y: {x: Edge(0, 0) for x in self.nodes} for y in self.nodes}  # dict node to node
             self.generate_sink_source_graph(r, upperCap)
-            self.meta_data = {"n": n, 'r': r, 'c': upperCap}
+            self.meta_data["n"] = n
+            self.meta_data['r'] = r
+            self.meta_data['c'] = upperCap
         else:
             pass
 
@@ -113,7 +116,7 @@ class Graph:
         for i in range(len(path) - 1):
             a, b = path[i], path[i + 1]
             self.edges[a][b].flow += flow
-            self.edges[b][a].flow -= flow
+            self.edges[b][a].flow = self.edges[a][b].capacity - self.edges[a][b].flow
             # checking for errors:
             if (self.edges[a][b].flow > self.edges[a][b].capacity) or (self.edges[b][a].flow < 0):
                 raise ValueError("error")
@@ -238,7 +241,7 @@ def save_graphs(graphs, path):
                         line = f"edge:{n1.id};{n2.id};{g.edges[n1][n2].capacity}\n"
                         f.write(line)
 
-            f.write(f"graph:{s.id};{t.id};{target_distance};{n};{r};{c}\n")
+            f.write(f"graph:{s};{t};{target_distance};{n};{r};{c}\n")
 
     return True
 
@@ -316,8 +319,8 @@ if __name__ == '__main__':
                     my_max_flow = g.ford_fulkerson(source, target, method='MAXCAP')
                     print(f"My implementation Max Flow: {my_max_flow}")
                     g.reset()
-                    g.meta_data['s'] = source
-                    g.meta_data['t'] = target
+                    g.meta_data['s'] = source.id
+                    g.meta_data['t'] = target.id
                     g.meta_data['target_distance'] = target_distance
                     graphs.append(g)
 
@@ -337,7 +340,7 @@ if __name__ == '__main__':
                                                         flow_func=nx.flow.shortest_augmenting_path)
                     print(f"NetworkX Max Flow: {networkx_max_flow[0]}")
 
-                    if networkx_max_flow != my_max_flow:
+                    if round(networkx_max_flow[0], 12) != round(my_max_flow, 12): # checking up to 12 decimals
                         print("VALUES DIFFER ON THIS GRAPH, FURTHER ANALYSIS NEEDED")
                     # -------------------------------------------------------------------------------------------
 
@@ -349,8 +352,8 @@ if __name__ == '__main__':
 
     logs = []
     for i, graph in enumerate(graphs):
-        s = graph.meta_data['s']
-        t = graph.meta_data['t']
+        s = graph.nodes[graph.meta_data['s']]
+        t = graph.nodes[graph.meta_data['t']]
         target_distance = graph.meta_data['target_distance']
         n = graph.meta_data['n']
         r = graph.meta_data['r']
@@ -379,4 +382,3 @@ if __name__ == '__main__':
     with open(output_path, 'w') as f:
         f.write('method,n,r,c,paths,ML,MPL,total_edges\n')
         f.writelines([','.join([str(v) for v in x]) + '\n' for x in logs])
-        
