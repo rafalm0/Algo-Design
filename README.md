@@ -13,7 +13,12 @@
 
 ## 2 - Running the experiments
 
-The project was coded in python 3.11 with no extra libraries needed to run it.
+The project was coded in python 3.11 with no libraries needed to run it.
+
+> DISCLAIMER:
+> 
+>   The library networkx was used ONLY to VALIDATE the results of maxFlow algorithms, this can be double checked on
+>   the code if desired
 
 
 The script can be run in a simple call alongside python or python3:

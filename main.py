@@ -1,8 +1,18 @@
 import os.path
 from random import random, choice, uniform
 import math
-import networkx as nx
 
+nx_imported = False  # the code will only use networkx to validate results but if needed to disable, just comment below
+
+# ----------------------------------------------------------------
+try:
+    import networkx as nx
+
+    nx_imported = True
+except ImportError:
+    pass
+
+# ----------------------------------------------------------------
 
 class Node:
     def __init__(self, _id, x, y):
@@ -70,7 +80,7 @@ class Graph:
                         if rand < .5:
                             if self.edges[vertex][vertex_2].capacity == 0:
                                 if self.edges[vertex_2][vertex].capacity == 0:
-                                    edge_count +=1
+                                    edge_count += 1
                                     capacity = uniform(1, upperCap)
                                     self.link_nodes(vertex, vertex_2, capacity)
                         else:
@@ -286,7 +296,7 @@ def load_graphs(path):
                 edges[nodes[t_id]][nodes[s_id]].capacity = capacity
                 edges[nodes[t_id]][nodes[s_id]].flow = capacity
                 edges[nodes[t_id]][nodes[s_id]].residual = True
-                edge_count +=1
+                edge_count += 1
 
     return graphs
 
@@ -326,22 +336,23 @@ if __name__ == '__main__':
 
                     # -------------------------------------------------------------------------------------------
                     # networkX being used ONLY for VALIDATION
-                    G = nx.DiGraph()
+                    if nx_imported:
+                        G = nx.DiGraph()
 
-                    for node in g.nodes:
-                        G.add_node(node.id)
+                        for node in g.nodes:
+                            G.add_node(node.id)
 
-                    for u in g.nodes:
-                        for v in g.nodes:
-                            if g.edges[u][v].capacity - g.edges[u][v].flow > 0:
-                                G.add_edge(u.id, v.id, capacity=g.edges[u][v].capacity, flow=g.edges[u][v].flow)
+                        for u in g.nodes:
+                            for v in g.nodes:
+                                if g.edges[u][v].capacity - g.edges[u][v].flow > 0:
+                                    G.add_edge(u.id, v.id, capacity=g.edges[u][v].capacity, flow=g.edges[u][v].flow)
 
-                    networkx_max_flow = nx.maximum_flow(G, source.id, target.id,
-                                                        flow_func=nx.flow.shortest_augmenting_path)
-                    print(f"NetworkX Max Flow: {networkx_max_flow[0]}")
+                        networkx_max_flow = nx.maximum_flow(G, source.id, target.id,
+                                                            flow_func=nx.flow.shortest_augmenting_path)
+                        print(f"NetworkX Max Flow: {networkx_max_flow[0]}")
 
-                    if round(networkx_max_flow[0], 12) != round(my_max_flow, 12): # checking up to 12 decimals
-                        print("VALUES DIFFER ON THIS GRAPH, FURTHER ANALYSIS NEEDED")
+                        if round(networkx_max_flow[0], 12) != round(my_max_flow, 12):  # checking up to 12 decimals
+                            print("VALUES DIFFER ON THIS GRAPH, FURTHER ANALYSIS NEEDED")
                     # -------------------------------------------------------------------------------------------
 
         save_graphs(graphs, file_path)
@@ -363,7 +374,7 @@ if __name__ == '__main__':
 
         print(f"n:{n}   r:{r}   upperCap:{c}")
         for method in ['SAP', 'DFS', 'MAXCAP', 'RANDOM']:
-            print(f"\t Method: {method}")
+
             paths = 0  # number of augmenting paths
             ML = 0  # avg of all augmenting paths
             MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
@@ -377,6 +388,7 @@ if __name__ == '__main__':
             MPL = ML / target_distance
             logs.append([method, n, r, c, paths, ML, MPL, total_edges])
             graph.reset()
+            print(f"\t Method: {method}\t Flow: {my_max_flow}")
 
     print("All experiments finished, saving logs on csv...")
     with open(output_path, 'w') as f:
