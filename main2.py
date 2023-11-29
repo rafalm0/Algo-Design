@@ -108,7 +108,7 @@ class Graph:
             # end check
         return True
 
-    def SAP_DFS(self, source, target, BFS=True):
+    def SAP_DFS_RANDOM(self, source, target, method='SAP'):
         visited = set()
         distance = [math.inf for n in range(len(self.nodes))]
         fathers = {n: None for n in self.nodes}
@@ -117,10 +117,15 @@ class Graph:
         q = [(source, 0)]
         visited.add(source)
         while q:
-            if BFS:
+            if method == 'SAP':
                 current, current_distance = q.pop()
-            else:
+            elif method == 'DFS':
                 current, current_distance = q.pop(0)
+            elif method == 'RANDOM':
+                current, current_distance = q.pop(choice(range(len(q))))
+            else:
+                print("wrong input for method")
+                raise ValueError
 
             for neighbor, edge in self.edges[current].items():
 
@@ -145,7 +150,7 @@ class Graph:
 
         return path[::-1], distance[target.id]
 
-    def MAXCAP(self, source, target):
+    def MAXCAP(self, source, target, method=None):
         visited = set()
         distance = [math.inf for n in range(len(self.nodes))]
         fathers = {n: None for n in self.nodes}
@@ -184,9 +189,12 @@ class Graph:
         return path[::-1], distance[target.id]
 
     def ford_fulkerson(self, source, target, method='SAP'):
-        methods = {'MAXCAP': None, 'SAP': self.SAP_DFS, 'DFS': None, 'RANDOM': None}
+        if method == "MAXCAP":
+            func = self.MAXCAP
+        else:
+            func = self.SAP_DFS_RANDOM
         max_flow = 0
-        path, distance = methods[method](source, target)
+        path, distance = func(source, target, method)
 
         while len(path) > 1:
             capacity = self.max_supported_flow(path)
@@ -194,7 +202,7 @@ class Graph:
             self.update_residuals(path, capacity)
             max_flow += capacity
 
-            path, distance = methods[method](source, target)
+            path, distance = func(source, target, method)
 
         return max_flow
 
@@ -209,7 +217,7 @@ if source == target:
     quit()
 print(f"got distance of {distance} for node {target.id}")
 
-shortest_path, shortest_distance = g.SAP_DFS(source, target)
+shortest_path, shortest_distance = g.SAP_DFS_RANDOM(source, target, method='SAP')
 
 G = nx.DiGraph()
 
@@ -218,7 +226,7 @@ for node in g.nodes:
 
 for u in g.nodes:
     for v in g.nodes:
-        if g.edges[u][v].capacity > 0:
+        if g.edges[u][v].capacity - g.edges[u][v].flow > 0:
             G.add_edge(u.id, v.id, capacity=g.edges[u][v].capacity, flow=g.edges[u][v].flow)
 
 print("Shortest Path:", [node.id for node in shortest_path])
