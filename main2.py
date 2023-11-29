@@ -151,34 +151,29 @@ class Graph:
         return path[::-1], distance[target.id]
 
     def MAXCAP(self, source, target, method=None):
-        visited = set()
-        distance = [math.inf for n in range(len(self.nodes))]
+        cap_until = [0 for n in range(len(self.nodes))]
         fathers = {n: None for n in self.nodes}
-        distance[source.id] = 0
+        cap_until[source.id] = math.inf
 
-        q = [(source, 0)]
-        visited.add(source)
+        q = [(source, math.inf)]
         while q:
-            current, current_distance = min(q, key=lambda a: a[1])
-            q.remove((current, current_distance))
 
-            if current == target:
-                break
+            current, current_cap = max(q, key=lambda a: a[1])
+            q.remove((current, current_cap))
 
             for neighbor, edge in self.edges[current].items():
                 if self.edges[current][neighbor].capacity - self.edges[current][neighbor].flow > 0:
-                    if neighbor not in visited:
-                        visited.add(neighbor)
-                        if current_distance + 1 < distance[neighbor.id]:
-                            distance[neighbor.id] = current_distance + 1
-                            fathers[neighbor] = current
-                        q.append((neighbor, distance[neighbor.id]))
-        else:
-            print("No augmenting path found")
-            return [], distance[target.id]
+                    max_cap_to_neighbour = min(edge.capacity, current_cap)
+
+                    if max_cap_to_neighbour > cap_until[neighbor.id]:
+                        cap_until[neighbor.id] = max_cap_to_neighbour
+                        fathers[neighbor] = current
+                        q.append((neighbor, max_cap_to_neighbour))
 
         path = []
         current = target
+        if fathers[target] is None:
+            return [], cap_until[target.id]
 
         while current != source:
             path.append(current)
@@ -186,7 +181,7 @@ class Graph:
 
         path.append(source)
 
-        return path[::-1], distance[target.id]
+        return path[::-1], cap_until[target.id]
 
     def ford_fulkerson(self, source, target, method='SAP'):
         if method == "MAXCAP":
@@ -207,7 +202,7 @@ class Graph:
         return max_flow
 
 
-g = Graph(100, 0.2, 2)
+g = Graph(200, 0.2, 2)
 
 source = g.nodes[0]
 target, distance = g.find_farthest_node(source)
@@ -234,7 +229,8 @@ print("Shortest Distance:", shortest_distance)
 
 networkx_max_flow = nx.maximum_flow(G, source.id, target.id, flow_func=nx.flow.shortest_augmenting_path)
 # Compare the results
-print(f"Your Implementation Max Flow: {g.ford_fulkerson(source, target)}")
+g.reset()
+print(f"Your Implementation Max Flow: {g.ford_fulkerson(source, target, method='MAXCAP')}")
 print(f"NetworkX Max Flow: {networkx_max_flow}")
 
 # Draw the graph
