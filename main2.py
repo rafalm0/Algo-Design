@@ -22,13 +22,22 @@ class Edge:
 
 class Graph:
 
-    def __init__(self, n, r, upperCap):
-        self.nodes = []
-        for node_id in range(n):
-            self.nodes.append(Node(node_id, uniform(0, 1), uniform(0, 1)))
+    def __init__(self, n, r, upperCap, external=False):
+        if not external:
+            self.nodes = []
+            for node_id in range(n):
+                self.nodes.append(Node(node_id, uniform(0, 1), uniform(0, 1)))
 
-        self.edges = {y: {x: Edge(0, 0) for x in self.nodes} for y in self.nodes}  # dict node to node
-        self.generate_sink_source_graph(r, upperCap)
+            self.edges = {y: {x: Edge(0, 0) for x in self.nodes} for y in self.nodes}  # dict node to node
+            self.generate_sink_source_graph(r, upperCap)
+            self.meta_data = {"n": n, 'r': r, 'c': upperCap}
+        else:
+            pass
+
+    def initialize(self, nodes, edges, meta_data):
+        self.nodes = nodes
+        self.edges = edges
+        self.meta_data = meta_data
 
     def link_nodes(self, source, target, capacity):
         if self.edges[source][target].capacity != 0:
@@ -200,6 +209,70 @@ class Graph:
             path, distance = func(source, target, method)
 
         return max_flow
+
+
+def save_graphs(graphs, path):
+    with open(path, 'w') as f:
+        for graph in graphs:
+            g = graph.meta_data['g']
+            s = graph.meta_data['s']
+            t = graph.meta_data['t']
+            max_dist = graph.meta_data['max_dist']
+            n = graph.meta_data['n']
+            r = graph.meta_data['r']
+            c = graph.meta_data['c']  # upperCap
+
+            for node in g.nodes:
+                line = f"node:{node.id};{node.x};{node.y}\n"
+                f.write(line)
+
+            for n1 in g.nodes:
+                for n2 in g.nodes:
+                    if g.edges[n1][n2].capacity - g.edges[n1][n2].flow > 0:
+                        line = f"edge:{n1.id};{n2.id};{g.edges[n1][n2].capacity}\n"
+                        f.write(line)
+
+            f.write(f"graph:{s.id};{t.id};{max_dist};{n};{r};{c}\n")
+
+    return True
+
+
+def load_graphs(path):
+    graphs = []
+    with open(path, 'r') as f:
+        nodes = []
+        for line in f.readlines():
+            type, line = line.split(":")
+
+            if type == "graph":
+                source_id, target_id, max_dist, n, r, c = line.split(";")
+
+                source_id, target_id, max_dist, n, r, c = int(source_id), int(target_id), int(
+                    max_dist), int(n), float(r), int(c)
+
+                g = Graph(None, None, None, external=True)
+                meta_data = {"s": source_id, 't': target_id, 'max_dist': max_dist, 'n': n, 'r': r, 'c': c}
+                g.initialize(nodes, edges, meta_data)
+
+                graphs.append(g)
+
+                nodes = []
+                edges = None
+
+            elif type == "node":
+                node_id, x, y = line.split(";")
+                new_node = Node(int(node_id), float(x), float(y))
+                nodes.append(new_node)
+            elif type == "edge":
+                if edges is None:
+                    edges = {y: {x: Edge(0, 0) for x in nodes} for y in nodes}
+                source_node_id, target_node_id, capacity = line.split(";")
+                edges[source_node_id][target_node_id].capacity = capacity
+                edges[target_node_id][source_node_id].capacity = capacity
+                edges[target_node_id][source_node_id].flow = capacity
+                edges[target_node_id][source_node_id].residual = True
+
+    return graphs
 
 
 g = Graph(200, 0.2, 2)
