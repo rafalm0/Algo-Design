@@ -202,7 +202,7 @@ class Graph:
 
         while len(path) > 1:
             capacity = self.max_supported_flow(path)
-            print(f"augmenting path in {capacity}")
+            # print(f"augmenting path in {capacity}")  # uncomment if desires to see all augments
             self.update_residuals(path, capacity)
             max_flow += capacity
 
@@ -214,7 +214,6 @@ class Graph:
 def save_graphs(graphs, path):
     with open(path, 'w') as f:
         for graph in graphs:
-            g = graph.meta_data['g']
             s = graph.meta_data['s']
             t = graph.meta_data['t']
             target_distance = graph.meta_data['target_distance']
@@ -241,6 +240,7 @@ def load_graphs(path):
     graphs = []
     with open(path, 'r') as f:
         nodes = []
+        edges = None
         for line in f.readlines():
             type, line = line.split(":")
 
@@ -261,16 +261,18 @@ def load_graphs(path):
 
             elif type == "node":
                 node_id, x, y = line.split(";")
-                new_node = Node(int(node_id), float(x), float(y))
+                node_id, x, y = int(node_id), float(x), float(y)
+                new_node = Node(node_id, x, y)
                 nodes.append(new_node)
             elif type == "edge":
                 if edges is None:
                     edges = {y: {x: Edge(0, 0) for x in nodes} for y in nodes}
-                source_node_id, target_node_id, capacity = line.split(";")
-                edges[source_node_id][target_node_id].capacity = capacity
-                edges[target_node_id][source_node_id].capacity = capacity
-                edges[target_node_id][source_node_id].flow = capacity
-                edges[target_node_id][source_node_id].residual = True
+                s_id, t_id, capacity = line.split(";")
+                s_id, t_id, capacity = int(s_id), int(t_id), float(capacity)
+                edges[nodes[s_id]][nodes[t_id]].capacity = capacity
+                edges[nodes[t_id]][nodes[s_id]].capacity = capacity
+                edges[nodes[t_id]][nodes[s_id]].flow = capacity
+                edges[nodes[t_id]][nodes[s_id]].residual = True
 
     return graphs
 
@@ -287,19 +289,22 @@ if __name__ == '__main__':
         for n in n_values:
             for r in r_values:
                 for c in upper_cap_values:
+                    print("------------------------------------------------------------------------------------")
+                    print(f"Graph n:{n} , r:{r}, c:{c}")
                     g = Graph(n, r, c)
 
                     source = g.nodes[0]
                     target, distance = g.find_farthest_node(source)
 
-                    print(f"got distance of {distance} for node {target.id}")
+                    print(f"Got distance of {distance} for node {target.id}")
 
                     shortest_path, target_distance = g.SAP_DFS_RANDOM(source, target, method='SAP')
                     g.reset()
 
                     print("Shortest Path:", [node.id for node in shortest_path])
                     print("Shortest Distance:", target_distance)
-                    print(f"My implementation Max Flow: {g.ford_fulkerson(source, target, method='MAXCAP')}")
+                    my_max_flow = g.ford_fulkerson(source, target, method='MAXCAP')
+                    print(f"My implementation Max Flow: {my_max_flow}")
                     g.reset()
                     g.meta_data['s'] = source
                     g.meta_data['t'] = target
@@ -320,8 +325,10 @@ if __name__ == '__main__':
 
                     networkx_max_flow = nx.maximum_flow(G, source.id, target.id,
                                                         flow_func=nx.flow.shortest_augmenting_path)
-                    print(f"NetworkX Max Flow: {networkx_max_flow}")
+                    print(f"NetworkX Max Flow: {networkx_max_flow[0]}")
 
+                    if networkx_max_flow != my_max_flow:
+                        print("VALUES DIFFER ON THIS GRAPH, FURTHER ANALYSIS NEEDED")
                     # -------------------------------------------------------------------------------------------
 
         save_graphs(graphs, file_path)
