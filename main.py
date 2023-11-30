@@ -12,6 +12,7 @@ try:
 except ImportError:
     pass
 
+
 # ----------------------------------------------------------------
 
 class Node:
@@ -129,7 +130,8 @@ class Graph:
             self.edges[a][b].flow += flow
             self.edges[b][a].flow = self.edges[a][b].capacity - self.edges[a][b].flow
             # checking for errors:
-            if (self.edges[a][b].flow > (self.edges[a][b].capacity + error_margin)) or ((self.edges[b][a].flow+error_margin) < 0):
+            if (self.edges[a][b].flow > (self.edges[a][b].capacity + error_margin)) or (
+                    (self.edges[b][a].flow + error_margin) < 0):
                 raise ValueError("error")
             # end check
         return True
@@ -305,19 +307,14 @@ def load_graphs(path):
 if __name__ == '__main__':
     file_path = 'graphs.txt'
     output_path = 'logs_exp1.csv'
-    output_path_2 = 'logs_exp2.csv'
+    file_path_experiment_2 = 'graphs_2.txt'
+    output_path_experiment_2 = 'logs_exp2.csv'
 
     #  values for experiment 1
     n_values = [100, 200]
     r_values = [.2, .3]
     upper_cap_values = [2, 50]
     enable_visualization = True
-
-    #  values for experiment 2
-
-    n_value = 500
-    r_value = .5
-    upper_cap_value = 1
 
     graphs = []
     if not os.path.exists(file_path):
@@ -385,7 +382,6 @@ if __name__ == '__main__':
 
         print(f"n:{n}   r:{r}   upperCap:{c}")
         for method in ['SAP', 'DFS', 'MAXCAP', 'RANDOM']:
-
             paths = 0  # number of augmenting paths
             ML = 0  # avg of all augmenting paths
             MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
@@ -405,87 +401,73 @@ if __name__ == '__main__':
         f.write('method,n,r,c,paths,ML,MPL,total_edges\n')
         f.writelines([','.join([str(v) for v in x]) + '\n' for x in logs])
 
-
-
-
     print("Starting experiment 2...")
-    n = n_value
-    r = r_value
-    c = upper_cap_value
+    #  values for experiment 2
+
+    n_ = [300, 300]
+    r_ = [.3, .3]
+    c_ = [1, 200]
     logs = []
 
-    print("------------------------------------------------------------------------------------")
-    print(f"Graph n:{n} , r:{r}, c:{c}")
-    g = Graph(n, r, c)
+    if not os.path.exists(file_path_experiment_2):
+        graphs = []
+        for i in range(len(n_)):
+            n = n_[i]
+            r = r_[i]
+            c = c_[i]
+            print("------------------------------------------------------------------------------------")
+            print(f"Graph n:{n} , r:{r}, c:{c}")
+            g = Graph(n, r, c)
 
-    source = g.nodes[0]
-    target, distance = g.find_farthest_node(source)
+            source = g.nodes[0]
+            target, distance = g.find_farthest_node(source)
 
-    print(f"Got distance of {distance} for node {target.id}")
+            print(f"Got distance of {distance} for node {target.id}")
 
-    shortest_path, target_distance = g.SAP_DFS_RANDOM(source, target, method='SAP')
+            shortest_path, target_distance = g.SAP_DFS_RANDOM(source, target, method='SAP')
 
-    print("Shortest Path:", [node.id for node in shortest_path])
-    print("Shortest Distance:", target_distance)
-    my_max_flow = g.ford_fulkerson(source, target, method='MAXCAP')
-    print(f"My implementation Max Flow: {my_max_flow}")
-    g.reset()
-    g.meta_data['s'] = source.id
-    g.meta_data['t'] = target.id
-    g.meta_data['target_distance'] = target_distance
+            print("Shortest Path:", [node.id for node in shortest_path])
+            print("Shortest Distance:", target_distance)
+            my_max_flow = g.ford_fulkerson(source, target, method='MAXCAP')
+            print(f"My implementation Max Flow: {my_max_flow}")
+            g.reset()
+            g.meta_data['s'] = source.id
+            g.meta_data['t'] = target.id
+            g.meta_data['target_distance'] = target_distance
+            graphs.append(g)
+        save_graphs(graphs, file_path_experiment_2)
+    else:
+        graphs = load_graphs(file_path_experiment_2)
 
+    for g in graphs:
+        s = g.nodes[g.meta_data['s']]
+        t = g.nodes[g.meta_data['t']]
+        target_distance = g.meta_data['target_distance']
+        n = g.meta_data['n']
+        r = g.meta_data['r']
+        c = g.meta_data['c']  # upperCap
+        print(f"-----------------------------------------")
+        print(f"Experiment on graph {i + 1}/{len(graphs)}")
 
-    # -------------------------------------------------------------------------------------------
-    # networkX being used ONLY for VALIDATION
-    if nx_imported:
-        G = nx.DiGraph()
+        print(f"n:{n}   r:{r}   upperCap:{c}")
+        for method in ['SAP', 'DFS', 'MAXCAP', 'RANDOM']:
+            paths = 0  # number of augmenting paths
+            ML = 0  # avg of all augmenting paths
+            MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
+            total_edges = g.meta_data['edge_count']
 
-        for node in g.nodes:
-            G.add_node(node.id)
+            my_max_flow = g.ford_fulkerson(s, t, method=method)
+            paths = g.meta_data['augmenting_path_count']
+            ML = sum(g.meta_data['augmenting_path_length'])
 
-        for u in g.nodes:
-            for v in g.nodes:
-                if g.edges[u][v].capacity - g.edges[u][v].flow > 0:
-                    G.add_edge(u.id, v.id, capacity=g.edges[u][v].capacity, flow=g.edges[u][v].flow)
-
-        networkx_max_flow = nx.maximum_flow(G, source.id, target.id,
-                                            flow_func=nx.flow.shortest_augmenting_path)
-        print(f"NetworkX Max Flow: {networkx_max_flow[0]}")
-
-        if round(networkx_max_flow[0], 12) != round(my_max_flow, 12):  # checking up to 12 decimals
-            print("VALUES DIFFER ON THIS GRAPH, FURTHER ANALYSIS NEEDED")
-    # -------------------------------------------------------------------------------------------
-
-    s = g.nodes[g.meta_data['s']]
-    t = g.nodes[g.meta_data['t']]
-    target_distance = g.meta_data['target_distance']
-    n = g.meta_data['n']
-    r = g.meta_data['r']
-    c = g.meta_data['c']  # upperCap
-    print(f"-----------------------------------------")
-    print(f"Experiment on graph {i + 1}/{len(graphs)}")
-
-    print(f"n:{n}   r:{r}   upperCap:{c}")
-    for method in ['SAP', 'DFS', 'MAXCAP', 'RANDOM']:
-        paths = 0  # number of augmenting paths
-        ML = 0  # avg of all augmenting paths
-        MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
-        total_edges = g.meta_data['edge_count']
-
-        my_max_flow = g.ford_fulkerson(s, t, method=method)
-        paths = g.meta_data['augmenting_path_count']
-        ML = sum(g.meta_data['augmenting_path_length'])
-
-        ML = ML / paths
-        MPL = ML / target_distance
-        logs.append([method, n, r, c, paths, ML, MPL, total_edges])
-        g.reset()
-        print(f"\t Method: {method}\t Flow: {my_max_flow}")
+            ML = ML / paths
+            MPL = ML / target_distance
+            logs.append([method, n, r, c, paths, ML, MPL, total_edges])
+            g.reset()
+            print(f"\t Method: {method}\t Flow: {my_max_flow}")
 
     print("All experiments finished, saving logs on csv...")
 
-    with open(output_path_2, 'w') as f:
+    with open(output_path_experiment_2, 'w') as f:
         f.write('method,n,r,c,paths,ML,MPL,total_edges\n')
         f.writelines([','.join([str(v) for v in x]) + '\n' for x in logs])
-
-    print("asd")
