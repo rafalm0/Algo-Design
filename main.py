@@ -123,12 +123,13 @@ class Graph:
         return min(capacities)
 
     def update_residuals(self, path, flow):
+        error_margin = 0.00000000001
         for i in range(len(path) - 1):
             a, b = path[i], path[i + 1]
             self.edges[a][b].flow += flow
             self.edges[b][a].flow = self.edges[a][b].capacity - self.edges[a][b].flow
             # checking for errors:
-            if (self.edges[a][b].flow > self.edges[a][b].capacity) or (self.edges[b][a].flow < 0):
+            if (self.edges[a][b].flow > (self.edges[a][b].capacity + error_margin)) or ((self.edges[b][a].flow+error_margin) < 0):
                 raise ValueError("error")
             # end check
         return True
@@ -241,14 +242,14 @@ def save_graphs(graphs, path):
             r = graph.meta_data['r']
             c = graph.meta_data['c']  # upperCap
 
-            for node in g.nodes:
+            for node in graph.nodes:
                 line = f"node:{node.id};{node.x};{node.y}\n"
                 f.write(line)
 
-            for n1 in g.nodes:
-                for n2 in g.nodes:
-                    if g.edges[n1][n2].capacity - g.edges[n1][n2].flow > 0:
-                        line = f"edge:{n1.id};{n2.id};{g.edges[n1][n2].capacity}\n"
+            for n1 in graph.nodes:
+                for n2 in graph.nodes:
+                    if graph.edges[n1][n2].capacity - graph.edges[n1][n2].flow > 0:
+                        line = f"edge:{n1.id};{n2.id};{graph.edges[n1][n2].capacity}\n"
                         f.write(line)
 
             f.write(f"graph:{s};{t};{target_distance};{n};{r};{c}\n")
@@ -303,10 +304,20 @@ def load_graphs(path):
 
 if __name__ == '__main__':
     file_path = 'graphs.txt'
-    output_path = 'logs.csv'
+    output_path = 'logs_exp1.csv'
+    output_path_2 = 'logs_exp2.csv'
+
+    #  values for experiment 1
     n_values = [100, 200]
     r_values = [.2, .3]
-    upper_cap_values = [2, 5]
+    upper_cap_values = [2, 50]
+    enable_visualization = True
+
+    #  values for experiment 2
+
+    n_value = 500
+    r_value = .5
+    upper_cap_value = 1
 
     graphs = []
     if not os.path.exists(file_path):
@@ -359,7 +370,7 @@ if __name__ == '__main__':
     else:
         graphs = load_graphs(file_path)
 
-    print("Starting experiments...")
+    print("Starting experiment 1...")
 
     logs = []
     for i, graph in enumerate(graphs):
@@ -379,7 +390,6 @@ if __name__ == '__main__':
             ML = 0  # avg of all augmenting paths
             MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
             total_edges = graph.meta_data['edge_count']
-
             my_max_flow = graph.ford_fulkerson(s, t, method=method)
             paths = graph.meta_data['augmenting_path_count']
             ML = sum(graph.meta_data['augmenting_path_length'])
@@ -394,3 +404,88 @@ if __name__ == '__main__':
     with open(output_path, 'w') as f:
         f.write('method,n,r,c,paths,ML,MPL,total_edges\n')
         f.writelines([','.join([str(v) for v in x]) + '\n' for x in logs])
+
+
+
+
+    print("Starting experiment 2...")
+    n = n_value
+    r = r_value
+    c = upper_cap_value
+    logs = []
+
+    print("------------------------------------------------------------------------------------")
+    print(f"Graph n:{n} , r:{r}, c:{c}")
+    g = Graph(n, r, c)
+
+    source = g.nodes[0]
+    target, distance = g.find_farthest_node(source)
+
+    print(f"Got distance of {distance} for node {target.id}")
+
+    shortest_path, target_distance = g.SAP_DFS_RANDOM(source, target, method='SAP')
+
+    print("Shortest Path:", [node.id for node in shortest_path])
+    print("Shortest Distance:", target_distance)
+    my_max_flow = g.ford_fulkerson(source, target, method='MAXCAP')
+    print(f"My implementation Max Flow: {my_max_flow}")
+    g.reset()
+    g.meta_data['s'] = source.id
+    g.meta_data['t'] = target.id
+    g.meta_data['target_distance'] = target_distance
+
+
+    # -------------------------------------------------------------------------------------------
+    # networkX being used ONLY for VALIDATION
+    if nx_imported:
+        G = nx.DiGraph()
+
+        for node in g.nodes:
+            G.add_node(node.id)
+
+        for u in g.nodes:
+            for v in g.nodes:
+                if g.edges[u][v].capacity - g.edges[u][v].flow > 0:
+                    G.add_edge(u.id, v.id, capacity=g.edges[u][v].capacity, flow=g.edges[u][v].flow)
+
+        networkx_max_flow = nx.maximum_flow(G, source.id, target.id,
+                                            flow_func=nx.flow.shortest_augmenting_path)
+        print(f"NetworkX Max Flow: {networkx_max_flow[0]}")
+
+        if round(networkx_max_flow[0], 12) != round(my_max_flow, 12):  # checking up to 12 decimals
+            print("VALUES DIFFER ON THIS GRAPH, FURTHER ANALYSIS NEEDED")
+    # -------------------------------------------------------------------------------------------
+
+    s = g.nodes[g.meta_data['s']]
+    t = g.nodes[g.meta_data['t']]
+    target_distance = g.meta_data['target_distance']
+    n = g.meta_data['n']
+    r = g.meta_data['r']
+    c = g.meta_data['c']  # upperCap
+    print(f"-----------------------------------------")
+    print(f"Experiment on graph {i + 1}/{len(graphs)}")
+
+    print(f"n:{n}   r:{r}   upperCap:{c}")
+    for method in ['SAP', 'DFS', 'MAXCAP', 'RANDOM']:
+        paths = 0  # number of augmenting paths
+        ML = 0  # avg of all augmenting paths
+        MPL = 0  # ML / longest acyclic path from s to t(recorded in "max_dist")
+        total_edges = g.meta_data['edge_count']
+
+        my_max_flow = g.ford_fulkerson(s, t, method=method)
+        paths = g.meta_data['augmenting_path_count']
+        ML = sum(g.meta_data['augmenting_path_length'])
+
+        ML = ML / paths
+        MPL = ML / target_distance
+        logs.append([method, n, r, c, paths, ML, MPL, total_edges])
+        g.reset()
+        print(f"\t Method: {method}\t Flow: {my_max_flow}")
+
+    print("All experiments finished, saving logs on csv...")
+
+    with open(output_path_2, 'w') as f:
+        f.write('method,n,r,c,paths,ML,MPL,total_edges\n')
+        f.writelines([','.join([str(v) for v in x]) + '\n' for x in logs])
+
+    print("asd")
