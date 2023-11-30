@@ -404,9 +404,9 @@ if __name__ == '__main__':
     print("Starting experiment 2...")
     #  values for experiment 2
 
-    n_ = [300, 300]
-    r_ = [.3, .3]
-    c_ = [1, 200]
+    n_ = [300, 300, 500]
+    r_ = [.3, .3, .1]
+    c_ = [1, 200, 50]
     logs = []
 
     if not os.path.exists(file_path_experiment_2):
