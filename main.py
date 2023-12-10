@@ -2,19 +2,6 @@ import os.path
 from random import random, choice, uniform
 import math
 
-nx_imported = False  # the code will only use networkx to validate results but if needed to disable, just comment below
-
-# ----------------------------------------------------------------
-try:
-    import networkx as nx
-
-    nx_imported = True
-except ImportError:
-    pass
-
-
-# ----------------------------------------------------------------
-
 class Node:
     def __init__(self, _id, x, y):
         self.id = _id
@@ -342,26 +329,6 @@ if __name__ == '__main__':
                     g.meta_data['target_distance'] = target_distance
                     graphs.append(g)
 
-                    # -------------------------------------------------------------------------------------------
-                    # networkX being used ONLY for VALIDATION
-                    if nx_imported:
-                        G = nx.DiGraph()
-
-                        for node in g.nodes:
-                            G.add_node(node.id)
-
-                        for u in g.nodes:
-                            for v in g.nodes:
-                                if g.edges[u][v].capacity - g.edges[u][v].flow > 0:
-                                    G.add_edge(u.id, v.id, capacity=g.edges[u][v].capacity, flow=g.edges[u][v].flow)
-
-                        networkx_max_flow = nx.maximum_flow(G, source.id, target.id,
-                                                            flow_func=nx.flow.shortest_augmenting_path)
-                        print(f"NetworkX Max Flow: {networkx_max_flow[0]}")
-
-                        if round(networkx_max_flow[0], 12) != round(my_max_flow, 12):  # checking up to 12 decimals
-                            print("VALUES DIFFER ON THIS GRAPH, FURTHER ANALYSIS NEEDED")
-                    # -------------------------------------------------------------------------------------------
 
         save_graphs(graphs, file_path)
     else:
@@ -405,7 +372,7 @@ if __name__ == '__main__':
     #  values for experiment 2
 
     n_ = [300, 300, 500]
-    r_ = [.3, .3, .1]
+    r_ = [.3, .3, .05]
     c_ = [1, 200, 50]
     logs = []
 
