@@ -222,8 +222,10 @@ class Graph:
 
 
 def save_graphs(graphs, path):
-    with open(path, 'w') as f:
-        for graph in graphs:
+
+    for i,graph in enumerate(graphs):
+        g_path = path.split("_")[0] + str(i) + path.split("_")[1]
+        with open(g_path, 'w') as f:
             s = graph.meta_data['s']
             t = graph.meta_data['t']
             target_distance = graph.meta_data['target_distance']
@@ -248,53 +250,56 @@ def save_graphs(graphs, path):
 
 def load_graphs(path):
     graphs = []
-    with open(path, 'r') as f:
-        nodes = []
-        edges = None
-        edge_count = 0
-        for line in f.readlines():
-            type, line = line.split(":")
+    for file in os.listdir():
+        if path.split("-")[1] in file:
 
-            if type == "graph":
-                source_id, target_id, target_distance, n, r, c = line.split(";")
-
-                source_id, target_id, target_distance, n, r, c = int(source_id), int(target_id), int(
-                    target_distance), int(n), float(r), int(c)
-
-                g = Graph(None, None, None, external=True)
-                meta_data = {"s": source_id, 't': target_id, 'target_distance': target_distance, 'n': n, 'r': r,
-                             'c': c, 'edge_count': edge_count}
-                g.initialize(nodes, edges, meta_data)
-
-                graphs.append(g)
-
+            with open(file, 'r') as f:
                 nodes = []
                 edges = None
                 edge_count = 0
+                for line in f.readlines():
+                    type, line = line.split(":")
 
-            elif type == "node":
-                node_id, x, y = line.split(";")
-                node_id, x, y = int(node_id), float(x), float(y)
-                new_node = Node(node_id, x, y)
-                nodes.append(new_node)
-            elif type == "edge":
-                if edges is None:
-                    edges = {y: {x: Edge(0, 0) for x in nodes} for y in nodes}
-                s_id, t_id, capacity = line.split(";")
-                s_id, t_id, capacity = int(s_id), int(t_id), float(capacity)
-                edges[nodes[s_id]][nodes[t_id]].capacity = capacity
-                edges[nodes[t_id]][nodes[s_id]].capacity = capacity
-                edges[nodes[t_id]][nodes[s_id]].flow = capacity
-                edges[nodes[t_id]][nodes[s_id]].residual = True
-                edge_count += 1
+                    if type == "graph":
+                        source_id, target_id, target_distance, n, r, c = line.split(";")
+
+                        source_id, target_id, target_distance, n, r, c = int(source_id), int(target_id), int(
+                            target_distance), int(n), float(r), int(c)
+
+                        g = Graph(None, None, None, external=True)
+                        meta_data = {"s": source_id, 't': target_id, 'target_distance': target_distance, 'n': n, 'r': r,
+                                     'c': c, 'edge_count': edge_count}
+                        g.initialize(nodes, edges, meta_data)
+
+                        graphs.append(g)
+
+                        nodes = []
+                        edges = None
+                        edge_count = 0
+
+                    elif type == "node":
+                        node_id, x, y = line.split(";")
+                        node_id, x, y = int(node_id), float(x), float(y)
+                        new_node = Node(node_id, x, y)
+                        nodes.append(new_node)
+                    elif type == "edge":
+                        if edges is None:
+                            edges = {y: {x: Edge(0, 0) for x in nodes} for y in nodes}
+                        s_id, t_id, capacity = line.split(";")
+                        s_id, t_id, capacity = int(s_id), int(t_id), float(capacity)
+                        edges[nodes[s_id]][nodes[t_id]].capacity = capacity
+                        edges[nodes[t_id]][nodes[s_id]].capacity = capacity
+                        edges[nodes[t_id]][nodes[s_id]].flow = capacity
+                        edges[nodes[t_id]][nodes[s_id]].residual = True
+                        edge_count += 1
 
     return graphs
 
 
 if __name__ == '__main__':
-    file_path = 'graphs.txt'
+    file_path = 'graph-Exp1-_.txt'
     output_path = 'logs_exp1.csv'
-    file_path_experiment_2 = 'graphs_2.txt'
+    file_path_experiment_2 = 'graph-Exp2-_.txt'
     output_path_experiment_2 = 'logs_exp2.csv'
 
     #  values for experiment 1
@@ -302,9 +307,12 @@ if __name__ == '__main__':
     r_values = [.2, .3]
     upper_cap_values = [2, 50]
     enable_visualization = True
-
+    Files_exist = False
+    for file in os.listdir():
+        if file_path.split("-")[0] in file:
+            Files_exist = True
     graphs = []
-    if not os.path.exists(file_path):
+    if not Files_exist:
         for n in n_values:
             for r in r_values:
                 for c in upper_cap_values:
@@ -368,15 +376,19 @@ if __name__ == '__main__':
         f.write('method,n,r,c,paths,ML,MPL,total_edges\n')
         f.writelines([','.join([str(v) for v in x]) + '\n' for x in logs])
 
-    print("Starting experiment 2...")
+    print("\n\n\nStarting experiment 2...")
     #  values for experiment 2
 
-    n_ = [300, 300, 500]
-    r_ = [.3, .3, .05]
-    c_ = [1, 200, 50]
+    n_ = [400, 150, 500]
+    r_ = [.4, .15, .2]
+    c_ = [5, 10, 50]
     logs = []
 
-    if not os.path.exists(file_path_experiment_2):
+    Files_exist = False
+    for file in os.listdir():
+        if file_path_experiment_2.split("-")[0] in file:
+            Files_exist = True
+    if not Files_exist:
         graphs = []
         for i in range(len(n_)):
             n = n_[i]
@@ -406,7 +418,7 @@ if __name__ == '__main__':
     else:
         graphs = load_graphs(file_path_experiment_2)
 
-    for g in graphs:
+    for i,g in enumerate(graphs):
         s = g.nodes[g.meta_data['s']]
         t = g.nodes[g.meta_data['t']]
         target_distance = g.meta_data['target_distance']
